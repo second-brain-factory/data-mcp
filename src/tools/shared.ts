@@ -46,11 +46,15 @@ export function handleAdapterError(error: unknown, toolName: string): { content:
   return makeErrorResponse(ERROR_MESSAGES.UNKNOWN);
 }
 
+// Cache of confirmed-existing collections (persists for process lifetime)
+const confirmedCollections = new Set<string>();
+
 /**
  * Wrap a tool handler with graceful degradation.
  *
  * Before executing the handler, checks if the required collection exists.
  * If not, returns a helpful message instead of crashing.
+ * Caches positive results to avoid an extra DB round-trip on every call.
  */
 export function withGracefulDegradation<TParams>(
   collection: string,
@@ -59,15 +63,21 @@ export function withGracefulDegradation<TParams>(
 ): (params: TParams) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   return async (params: TParams) => {
     try {
-      const exists = await adapter.collectionExists(collection);
-      if (!exists) {
-        return makeErrorResponse(
-          `The '${collection}' table does not exist yet. Run setup_migrate to create the database schema.`
-        );
+      // Skip existence check if we've already confirmed this collection exists
+      if (!confirmedCollections.has(collection)) {
+        const exists = await adapter.collectionExists(collection);
+        if (!exists) {
+          return makeErrorResponse(
+            `The '${collection}' table does not exist yet. Run setup_migrate to create the database schema.`
+          );
+        }
+        confirmedCollections.add(collection);
       }
       return await handler(params);
     } catch (error) {
       if (error instanceof AdapterError && error.code === 'COLLECTION_NOT_FOUND') {
+        // Remove from cache — table may have been dropped
+        confirmedCollections.delete(collection);
         return makeErrorResponse(
           `The '${collection}' table does not exist yet. Run setup_migrate to create the database schema.`
         );

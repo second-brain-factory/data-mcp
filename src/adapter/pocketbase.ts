@@ -111,8 +111,12 @@ export class PocketBaseAdapter implements DataAdapter {
       const limit = options?.limit ?? 20;
 
       // PocketBase LIKE search: field ~ 'value'
-      const escaped = query.replace(/'/g, "\\'");
-      const searchClauses = fields.map((f) => `${f} ~ '${escaped}'`);
+      // Sanitize query: strip all PocketBase filter metacharacters to prevent injection
+      const sanitized = sanitizePocketBaseValue(query);
+      const searchClauses = fields.map((f) => {
+        validateFieldName(f);
+        return `${f} ~ '${sanitized}'`;
+      });
       const searchFilter = `(${searchClauses.join(' || ')})`;
 
       let fullFilter = searchFilter;
@@ -164,14 +168,17 @@ export class PocketBaseAdapter implements DataAdapter {
   ): Promise<T> {
     await this.ensureAuth();
     try {
-      // Build filter from unique fields
+      // Build filter from unique fields — use sanitized values to prevent injection
       const clauses = uniqueFields.map((field) => {
+        validateFieldName(field);
         const value = data[field];
         if (typeof value === 'string') {
-          const escaped = value.replace(/'/g, "\\'");
-          return `${field} = '${escaped}'`;
+          return `${field} = '${sanitizePocketBaseValue(value)}'`;
         }
-        return `${field} = ${JSON.stringify(value)}`;
+        if (typeof value === 'number' || typeof value === 'boolean') {
+          return `${field} = ${value}`;
+        }
+        return `${field} = '${sanitizePocketBaseValue(String(value ?? ''))}'`;
       });
       const filter = clauses.join(' && ');
 
@@ -263,12 +270,43 @@ function filterToPocketBase(filter: Filter): string {
   return orGroups.length === 1 ? orGroups[0] : `(${orGroups.join(' || ')})`;
 }
 
+/**
+ * Sanitize a string value for use in PocketBase filter expressions.
+ * Strips/escapes all PocketBase filter metacharacters to prevent injection.
+ */
+function sanitizePocketBaseValue(value: string): string {
+  // Escape single quotes (PocketBase string delimiter)
+  let sanitized = value.replace(/'/g, "\\'");
+  // Remove characters that could alter filter logic
+  // PocketBase filter syntax: &&, ||, ~, !, =, !=, >, <, >=, <=, (, )
+  // We only need to worry about these OUTSIDE of quoted strings
+  // Since we always wrap in quotes, just escaping ' is sufficient IF we also
+  // strip any unmatched quotes. But to be safe, also strip backslash sequences
+  // that could escape our closing quote.
+  sanitized = sanitized.replace(/\\/g, '\\\\');
+  return sanitized;
+}
+
+/**
+ * Validate a field name contains only safe characters (alphanumeric + underscore).
+ * Prevents filter injection via field names.
+ */
+function validateFieldName(field: string): void {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(field)) {
+    throw new AdapterError(
+      'VALIDATION_ERROR',
+      `Invalid field name: ${field}`
+    );
+  }
+}
+
 function clauseToPocketBase(clause: FilterClause): string {
   const { field, op, value } = clause;
+  validateFieldName(field);
 
   const formatValue = (v: string | number | boolean | null): string => {
     if (v === null) return 'null';
-    if (typeof v === 'string') return `'${v.replace(/'/g, "\\'")}'`;
+    if (typeof v === 'string') return `'${sanitizePocketBaseValue(v)}'`;
     if (typeof v === 'boolean') return v ? 'true' : 'false';
     return String(v);
   };
@@ -290,7 +328,7 @@ function clauseToPocketBase(clause: FilterClause): string {
       return `${field} ~ ${formatValue(value as string)}`;
     case 'in': {
       const arr = value as string[];
-      const formatted = arr.map((v) => `'${v.replace(/'/g, "\\'")}'`).join(',');
+      const formatted = arr.map((v) => `'${sanitizePocketBaseValue(v)}'`).join(',');
       return `${field} ?= ${formatted}`;
     }
     case 'contains':

@@ -3,6 +3,7 @@
  *
  * Aggregate counts and health metrics across all collections.
  * Knowledge breakdown by type. Stale item count.
+ * Uses Promise.all to parallelize queries.
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -22,34 +23,34 @@ export function registerBrainStats(server: McpServer, adapter: DataAdapter): voi
     {},
     withGracefulDegradation('knowledge', adapter, async () => {
       try {
-        // Count all collections
-        const counts: Record<string, number> = {};
-        for (const collection of COLLECTIONS) {
-          try {
-            const exists = await adapter.collectionExists(collection);
-            if (exists) {
-              counts[collection] = await adapter.count(collection);
-            } else {
-              counts[collection] = 0;
+        // Count all collections in parallel
+        const countEntries = await Promise.all(
+          COLLECTIONS.map(async (collection) => {
+            try {
+              const exists = await adapter.collectionExists(collection);
+              return [collection, exists ? await adapter.count(collection) : 0] as const;
+            } catch {
+              return [collection, 0] as const;
             }
-          } catch {
-            counts[collection] = 0;
-          }
-        }
+          })
+        );
+        const counts = Object.fromEntries(countEntries);
 
-        // Knowledge breakdown by type
-        const knowledgeByType: Record<string, number> = {};
-        for (const type of KNOWLEDGE_TYPES) {
-          try {
-            knowledgeByType[type] = await adapter.count('knowledge', [
-              [{ field: 'type', op: 'eq', value: type }],
-            ]);
-          } catch {
-            knowledgeByType[type] = 0;
-          }
-        }
+        // Knowledge breakdown by type in parallel
+        const typeEntries = await Promise.all(
+          KNOWLEDGE_TYPES.map(async (type) => {
+            try {
+              return [type, await adapter.count('knowledge', [
+                [{ field: 'type', op: 'eq', value: type }],
+              ])] as const;
+            } catch {
+              return [type, 0] as const;
+            }
+          })
+        );
+        const knowledgeByType = Object.fromEntries(typeEntries);
 
-        // Stale count: knowledge items not validated in 90+ days
+        // Stale count
         let staleCount = 0;
         try {
           const staleDate = new Date();

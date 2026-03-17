@@ -103,10 +103,12 @@ export class SupabaseAdapter implements DataAdapter {
       q = applyFilter(q, options?.filter);
       const { data, error } = await q;
 
-      // If tsvector column exists and returned results, use them
-      if (!error && data && data.length > 0) {
-        return data as T[];
+      // If tsvector query succeeded (no error), return results even if empty
+      // Only fall through to ILIKE if the column/function doesn't exist (error)
+      if (!error) {
+        return (data ?? []) as T[];
       }
+      // Error indicates search_vector column likely doesn't exist — fall through
     } catch {
       // search_vector column may not exist — fall through to ILIKE
     }

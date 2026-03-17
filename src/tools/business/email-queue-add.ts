@@ -17,7 +17,7 @@ export function registerEmailQueueAdd(server: McpServer, adapter: DataAdapter): 
       to_email: z.string().min(1).max(200).describe('Recipient email address'),
       to_name: z.string().max(200).optional().describe('Recipient name'),
       subject: z.string().min(1).max(500).describe('Email subject'),
-      body_html: z.string().min(1).describe('HTML body content'),
+      body_html: z.string().min(1).max(50000).describe('HTML body content (max 50KB)'),
       body_text: z.string().optional().describe('Plain text body (fallback)'),
       sequence_id: z.string().max(100).optional().describe('Email sequence ID'),
       sequence_step: z.number().int().optional().describe('Step number in sequence'),

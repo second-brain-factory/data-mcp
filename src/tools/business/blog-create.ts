@@ -24,7 +24,7 @@ export function registerBlogCreate(server: McpServer, adapter: DataAdapter): voi
     {
       title: z.string().min(1).max(500).describe('Blog post title'),
       slug: z.string().max(200).optional().describe('URL slug (auto-generated from title if not provided)'),
-      content: z.string().min(1).describe('Blog post content (markdown)'),
+      content: z.string().min(1).max(100000).describe('Blog post content (markdown, max 100KB)'),
       excerpt: z.string().max(500).optional().describe('Short excerpt'),
       status: z.enum(['draft', 'published', 'archived']).optional().describe('Post status (default: draft)'),
       tags: z.array(z.string().max(100)).max(20).optional().describe('Tags'),
