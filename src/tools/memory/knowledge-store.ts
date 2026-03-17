@@ -27,7 +27,7 @@ export function registerKnowledgeStore(server: McpServer, adapter: DataAdapter):
         const existing = await adapter.list<Record<string, unknown>>('knowledge', {
           filter: [[
             { field: 'type', op: 'eq', value: params.type },
-            { field: 'title', op: 'like', value: params.title.trim() },
+            { field: 'title', op: 'eq', value: params.title.trim() },
           ]],
           page: { limit: 1, offset: 0 },
         });

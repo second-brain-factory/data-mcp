@@ -23,12 +23,15 @@ export function registerKnowledgeValidate(server: McpServer, adapter: DataAdapte
         const validated: string[] = [];
         const notFound: string[] = [];
 
-        for (const id of params.ids) {
-          try {
-            await adapter.update('knowledge', id, { last_validated_at: now });
-            validated.push(id);
-          } catch {
-            notFound.push(id);
+        // Parallelize updates for performance (up to 50 concurrent)
+        const results = await Promise.allSettled(
+          params.ids.map((id) => adapter.update('knowledge', id, { last_validated_at: now }))
+        );
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].status === 'fulfilled') {
+            validated.push(params.ids[i]);
+          } else {
+            notFound.push(params.ids[i]);
           }
         }
 

@@ -32,9 +32,8 @@ export function registerSetupMigrate(server: McpServer, adapter: DataAdapter): v
     {},
     async () => {
       try {
-        const created: string[] = [];
         const skipped: string[] = [];
-        const errors: Array<{ name: string; error: string }> = [];
+        const needsMigration: Array<{ name: string; instruction: string }> = [];
 
         for (const schema of COLLECTION_SCHEMAS) {
           try {
@@ -45,41 +44,34 @@ export function registerSetupMigrate(server: McpServer, adapter: DataAdapter): v
             }
 
             if (adapter.backend === 'supabase') {
-              // For Supabase, we cannot create tables via the client
-              // Report them as needing manual migration
-              errors.push({
+              needsMigration.push({
                 name: schema.name,
-                error: 'Supabase tables must be created via SQL migrations. See migrations/supabase/ directory.',
+                instruction: 'Run SQL migrations from migrations/supabase/ directory.',
               });
-              continue;
+            } else {
+              needsMigration.push({
+                name: schema.name,
+                instruction: 'Run PocketBase migrations from migrations/pocketbase/ directory.',
+              });
             }
-
-            // For PocketBase, we would create via API
-            // This is a simplified version — full migration files handle the detailed schema
-            errors.push({
-              name: schema.name,
-              error: 'Collection creation requires running PocketBase migrations. See migrations/pocketbase/ directory.',
-            });
           } catch (err) {
             const msg = err instanceof Error ? err.message : 'Unknown error';
             console.error(`[setup_migrate] Error checking ${schema.name}:`, msg);
-            errors.push({ name: schema.name, error: 'Failed to check collection status' });
+            needsMigration.push({ name: schema.name, instruction: 'Failed to check — may need migration' });
           }
         }
 
         return makeToolResponse({
           backend: adapter.backend,
-          created: created.length,
-          skipped: skipped.length,
-          needs_manual: errors.length,
+          existing: skipped.length,
+          needs_migration: needsMigration.length,
           details: {
-            created,
-            skipped,
-            needs_manual: errors.length > 0 ? errors : undefined,
+            existing: skipped,
+            needs_migration: needsMigration.length > 0 ? needsMigration : undefined,
           },
           message: adapter.backend === 'pocketbase'
-            ? `Schema check complete. ${skipped.length} existing, ${errors.length} need migration files. Run PocketBase migrations from migrations/pocketbase/ directory.`
-            : `Schema check complete. ${skipped.length} existing, ${errors.length} need SQL migrations. Apply migrations from migrations/supabase/ directory.`,
+            ? `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need migration files. Run PocketBase migrations from migrations/pocketbase/ directory.`
+            : `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need SQL migrations. Apply migrations from migrations/supabase/ directory.`,
         });
       } catch (error) {
         console.error('[setup_migrate] Error:', error);

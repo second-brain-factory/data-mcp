@@ -36,6 +36,8 @@ export function registerBlogUpdate(server: McpServer, adapter: DataAdapter): voi
           updates.status = params.status;
           if (params.status === 'published') {
             updates.published_at = new Date().toISOString();
+          } else {
+            updates.published_at = null;
           }
         }
         if (params.tags !== undefined) updates.tags = params.tags;
