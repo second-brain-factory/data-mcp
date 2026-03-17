@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { ContentCalendarRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerContentQueueAdd(server: McpServer, adapter: DataAdapter): void {
@@ -24,7 +25,7 @@ export function registerContentQueueAdd(server: McpServer, adapter: DataAdapter)
     },
     withGracefulDegradation('content_calendar', adapter, async (params) => {
       try {
-        const record = await adapter.create<Record<string, unknown>>('content_calendar', {
+        const record = await adapter.create<ContentCalendarRecord>('content_calendar', {
           title: params.title.trim(),
           content: params.content ?? null,
           platform: params.platform,

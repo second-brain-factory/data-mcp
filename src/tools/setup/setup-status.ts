@@ -6,6 +6,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { SettingsRecord } from '../../types/records.js';
 import { makeToolResponse, makeErrorResponse } from '../shared.js';
 
 const EXPECTED_COLLECTIONS = [
@@ -28,6 +29,7 @@ export function registerSetupStatus(server: McpServer, adapter: DataAdapter): vo
     'setup_status',
     'Check database connection status, list existing and missing collections, and report schema readiness.',
     {},
+    { readOnlyHint: true },
     async () => {
       try {
         // Test connection by listing collections
@@ -49,7 +51,7 @@ export function registerSetupStatus(server: McpServer, adapter: DataAdapter): vo
         let schemaVersion: string | null = null;
         if (existingSet.has('settings')) {
           try {
-            const results = await adapter.list<Record<string, unknown>>('settings', {
+            const results = await adapter.list<SettingsRecord>('settings', {
               filter: [[{ field: 'key', op: 'eq', value: 'schema_version' }]],
               page: { limit: 1, offset: 0 },
             });

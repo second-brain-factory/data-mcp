@@ -21,6 +21,10 @@ migrate((app) => {
       { name: 'confidence', type: 'number', options: { min: 0, max: 1 } },
       { name: 'last_validated_at', type: 'date' },
     ],
+    indexes: [
+      'CREATE INDEX idx_knowledge_type ON knowledge (type)',
+      'CREATE INDEX idx_knowledge_last_validated ON knowledge (last_validated_at)',
+    ],
   });
   app.save(knowledge);
 

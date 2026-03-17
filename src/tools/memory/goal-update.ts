@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { GoalRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerGoalUpdate(server: McpServer, adapter: DataAdapter): void {
@@ -41,7 +42,7 @@ export function registerGoalUpdate(server: McpServer, adapter: DataAdapter): voi
           });
         }
 
-        const record = await adapter.update<Record<string, unknown>>('goals', params.id, updates);
+        const record = await adapter.update<GoalRecord>('goals', params.id, updates);
 
         return makeToolResponse({
           updated: true,

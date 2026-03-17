@@ -287,20 +287,42 @@ function applyClause(query: any, clause: FilterClause): any {
   }
 }
 
+/**
+ * Validate a field name contains only safe characters (alphanumeric + underscore + dot).
+ * Prevents filter injection via field names.
+ */
+function validateFieldName(field: string): void {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(field)) {
+    throw new AdapterError(
+      'VALIDATION_ERROR',
+      `Invalid field name: ${field}`
+    );
+  }
+}
+
+/**
+ * Encode a value for safe interpolation into PostgREST filter strings.
+ * URL-encodes characters that have special meaning in PostgREST syntax.
+ */
+function encodeFilterValue(value: unknown): string {
+  return encodeURIComponent(String(value));
+}
+
 function clauseToSupabaseOr(clause: FilterClause): string {
   const { field, op, value } = clause;
+  validateFieldName(field);
 
   switch (op) {
-    case 'eq': return `${field}.eq.${value}`;
-    case 'neq': return `${field}.neq.${value}`;
-    case 'gt': return `${field}.gt.${value}`;
-    case 'gte': return `${field}.gte.${value}`;
-    case 'lt': return `${field}.lt.${value}`;
-    case 'lte': return `${field}.lte.${value}`;
-    case 'like': return `${field}.ilike.%${escapeIlike(value as string)}%`;
-    case 'in': return `${field}.in.(${(value as string[]).join(',')})`;
-    case 'contains': return `${field}.cs.{${value}}`;
-    default: return `${field}.eq.${value}`;
+    case 'eq': return `${field}.eq.${encodeFilterValue(value)}`;
+    case 'neq': return `${field}.neq.${encodeFilterValue(value)}`;
+    case 'gt': return `${field}.gt.${encodeFilterValue(value)}`;
+    case 'gte': return `${field}.gte.${encodeFilterValue(value)}`;
+    case 'lt': return `${field}.lt.${encodeFilterValue(value)}`;
+    case 'lte': return `${field}.lte.${encodeFilterValue(value)}`;
+    case 'like': return `${field}.ilike.%${encodeFilterValue(escapeIlike(value as string))}%`;
+    case 'in': return `${field}.in.(${(value as string[]).map(v => encodeFilterValue(v)).join(',')})`;
+    case 'contains': return `${field}.cs.{${encodeFilterValue(value)}}`;
+    default: return `${field}.eq.${encodeFilterValue(value)}`;
   }
 }
 

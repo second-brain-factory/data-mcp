@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { ContactRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerContactSearch(server: McpServer, adapter: DataAdapter): void {
@@ -17,9 +18,10 @@ export function registerContactSearch(server: McpServer, adapter: DataAdapter): 
       query: z.string().min(1).max(200).describe('Search query'),
       limit: z.number().int().min(1).max(50).optional().describe('Max results (default 10)'),
     },
+    { readOnlyHint: true },
     withGracefulDegradation('contacts', adapter, async (params) => {
       try {
-        const results = await adapter.textSearch<Record<string, unknown>>(
+        const results = await adapter.textSearch<ContactRecord>(
           'contacts',
           params.query,
           {

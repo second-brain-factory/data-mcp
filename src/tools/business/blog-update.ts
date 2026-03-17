@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { BlogPostRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerBlogUpdate(server: McpServer, adapter: DataAdapter): void {
@@ -52,7 +53,7 @@ export function registerBlogUpdate(server: McpServer, adapter: DataAdapter): voi
           });
         }
 
-        const record = await adapter.update<Record<string, unknown>>('blog_posts', params.id, updates);
+        const record = await adapter.update<BlogPostRecord>('blog_posts', params.id, updates);
 
         return makeToolResponse({
           updated: true,

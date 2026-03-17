@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { ContactRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerContactCreate(server: McpServer, adapter: DataAdapter): void {
@@ -25,7 +26,7 @@ export function registerContactCreate(server: McpServer, adapter: DataAdapter): 
     },
     withGracefulDegradation('contacts', adapter, async (params) => {
       try {
-        const record = await adapter.create<Record<string, unknown>>('contacts', {
+        const record = await adapter.create<ContactRecord>('contacts', {
           name: params.name.trim(),
           company: params.company ?? null,
           role: params.role ?? null,

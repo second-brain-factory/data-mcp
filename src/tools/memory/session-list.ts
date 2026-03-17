@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { SessionRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerSessionList(server: McpServer, adapter: DataAdapter): void {
@@ -17,9 +18,10 @@ export function registerSessionList(server: McpServer, adapter: DataAdapter): vo
       limit: z.number().int().min(1).max(100).optional().describe('Max results (default 20)'),
       offset: z.number().int().min(0).optional().describe('Offset for pagination (default 0)'),
     },
+    { readOnlyHint: true },
     withGracefulDegradation('sessions', adapter, async (params) => {
       try {
-        const result = await adapter.list<Record<string, unknown>>('sessions', {
+        const result = await adapter.list<SessionRecord>('sessions', {
           sort: [{ field: 'created_at', direction: 'desc' }],
           page: { limit: params.limit ?? 20, offset: params.offset ?? 0 },
         });

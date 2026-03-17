@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter, FilterClause } from '../../adapter/types.js';
+import type { BlogPostRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerBlogList(server: McpServer, adapter: DataAdapter): void {
@@ -18,6 +19,7 @@ export function registerBlogList(server: McpServer, adapter: DataAdapter): void 
       limit: z.number().int().min(1).max(100).optional().describe('Max results (default 20)'),
       offset: z.number().int().min(0).optional().describe('Offset for pagination (default 0)'),
     },
+    { readOnlyHint: true },
     withGracefulDegradation('blog_posts', adapter, async (params) => {
       try {
         const clauses: FilterClause[] = [];
@@ -27,7 +29,7 @@ export function registerBlogList(server: McpServer, adapter: DataAdapter): void 
 
         const filter = clauses.length > 0 ? [clauses] : undefined;
 
-        const result = await adapter.list<Record<string, unknown>>('blog_posts', {
+        const result = await adapter.list<BlogPostRecord>('blog_posts', {
           filter,
           sort: [{ field: 'created_at', direction: 'desc' }],
           page: { limit: params.limit ?? 20, offset: params.offset ?? 0 },

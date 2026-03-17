@@ -8,6 +8,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { DecisionRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerKnowledgeDecide(server: McpServer, adapter: DataAdapter): void {
@@ -24,7 +25,7 @@ export function registerKnowledgeDecide(server: McpServer, adapter: DataAdapter)
     },
     withGracefulDegradation('decisions', adapter, async (params) => {
       try {
-        const record = await adapter.create<Record<string, unknown>>('decisions', {
+        const record = await adapter.create<DecisionRecord>('decisions', {
           title: params.title.trim(),
           context: params.context ?? null,
           options_considered: params.options_considered,

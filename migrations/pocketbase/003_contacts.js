@@ -19,6 +19,9 @@ migrate((app) => {
       { name: 'tags', type: 'json' },
       { name: 'last_contact_date', type: 'date' },
     ],
+    indexes: [
+      'CREATE INDEX idx_contacts_name ON contacts (name)',
+    ],
   });
   app.save(contacts);
 }, (app) => {

@@ -8,6 +8,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { KnowledgeRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation, generateSummary } from '../shared.js';
 
 export function registerKnowledgeUpdate(server: McpServer, adapter: DataAdapter): void {
@@ -42,7 +43,7 @@ export function registerKnowledgeUpdate(server: McpServer, adapter: DataAdapter)
           });
         }
 
-        const record = await adapter.update<Record<string, unknown>>('knowledge', params.id, updates);
+        const record = await adapter.update<KnowledgeRecord>('knowledge', params.id, updates);
 
         return makeToolResponse({
           updated: true,

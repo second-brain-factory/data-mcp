@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { BlogPostRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 function slugify(text: string): string {
@@ -37,7 +38,7 @@ export function registerBlogCreate(server: McpServer, adapter: DataAdapter): voi
         const status = params.status ?? 'draft';
         const slug = params.slug ?? slugify(params.title);
 
-        const record = await adapter.create<Record<string, unknown>>('blog_posts', {
+        const record = await adapter.create<BlogPostRecord>('blog_posts', {
           title: params.title.trim(),
           slug,
           content: params.content,

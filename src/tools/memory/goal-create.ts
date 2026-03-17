@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { GoalRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerGoalCreate(server: McpServer, adapter: DataAdapter): void {
@@ -26,7 +27,7 @@ export function registerGoalCreate(server: McpServer, adapter: DataAdapter): voi
     },
     withGracefulDegradation('goals', adapter, async (params) => {
       try {
-        const record = await adapter.create<Record<string, unknown>>('goals', {
+        const record = await adapter.create<GoalRecord>('goals', {
           title: params.title.trim(),
           description: params.description ?? null,
           timeframe: params.timeframe,

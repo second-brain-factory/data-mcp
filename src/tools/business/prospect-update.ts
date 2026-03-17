@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { ProspectRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerProspectUpdate(server: McpServer, adapter: DataAdapter): void {
@@ -51,7 +52,7 @@ export function registerProspectUpdate(server: McpServer, adapter: DataAdapter):
           });
         }
 
-        const record = await adapter.update<Record<string, unknown>>('prospects', params.id, updates);
+        const record = await adapter.update<ProspectRecord>('prospects', params.id, updates);
 
         return makeToolResponse({
           updated: true,

@@ -30,6 +30,7 @@ export function registerBrainDecay(server: McpServer, adapter: DataAdapter): voi
       threshold: z.number().min(0).max(1).optional().describe('Decay threshold (default 0.5). Items BELOW this score are returned.'),
       limit: z.number().int().min(1).max(100).optional().describe('Max results (default 20)'),
     },
+    { readOnlyHint: true },
     withGracefulDegradation('knowledge', adapter, async (params) => {
       try {
         const threshold = params.threshold ?? 0.5;

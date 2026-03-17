@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { TaskRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerTaskUpdate(server: McpServer, adapter: DataAdapter): void {
@@ -39,7 +40,7 @@ export function registerTaskUpdate(server: McpServer, adapter: DataAdapter): voi
           });
         }
 
-        const record = await adapter.update<Record<string, unknown>>('tasks', params.id, updates);
+        const record = await adapter.update<TaskRecord>('tasks', params.id, updates);
 
         return makeToolResponse({
           updated: true,

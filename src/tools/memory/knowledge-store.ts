@@ -8,6 +8,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { KnowledgeRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation, generateSummary } from '../shared.js';
 
 export function registerKnowledgeStore(server: McpServer, adapter: DataAdapter): void {
@@ -24,7 +25,7 @@ export function registerKnowledgeStore(server: McpServer, adapter: DataAdapter):
     withGracefulDegradation('knowledge', adapter, async (params) => {
       try {
         // Dedup: check for existing item with same type + title
-        const existing = await adapter.list<Record<string, unknown>>('knowledge', {
+        const existing = await adapter.list<KnowledgeRecord>('knowledge', {
           filter: [[
             { field: 'type', op: 'eq', value: params.type },
             { field: 'title', op: 'eq', value: params.title.trim() },
@@ -42,7 +43,7 @@ export function registerKnowledgeStore(server: McpServer, adapter: DataAdapter):
           });
         }
 
-        const record = await adapter.create<Record<string, unknown>>('knowledge', {
+        const record = await adapter.create<KnowledgeRecord>('knowledge', {
           type: params.type,
           title: params.title.trim(),
           content: params.content,

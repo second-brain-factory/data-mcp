@@ -8,6 +8,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { KnowledgeRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation, generateSummary } from '../shared.js';
 
 export function registerKnowledgeLearn(server: McpServer, adapter: DataAdapter): void {
@@ -23,7 +24,7 @@ export function registerKnowledgeLearn(server: McpServer, adapter: DataAdapter):
     },
     withGracefulDegradation('knowledge', adapter, async (params) => {
       try {
-        const record = await adapter.create<Record<string, unknown>>('knowledge', {
+        const record = await adapter.create<KnowledgeRecord>('knowledge', {
           type: params.type,
           title: params.title.trim(),
           content: params.content,

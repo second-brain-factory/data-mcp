@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { SessionRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerSessionLog(server: McpServer, adapter: DataAdapter): void {
@@ -35,7 +36,7 @@ export function registerSessionLog(server: McpServer, adapter: DataAdapter): voi
     },
     withGracefulDegradation('sessions', adapter, async (params) => {
       try {
-        const record = await adapter.create<Record<string, unknown>>('sessions', {
+        const record = await adapter.create<SessionRecord>('sessions', {
           title: params.title.trim(),
           summary: params.summary,
           session_date: new Date().toISOString().split('T')[0],

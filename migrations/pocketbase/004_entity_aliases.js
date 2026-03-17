@@ -15,6 +15,8 @@ migrate((app) => {
     ],
     indexes: [
       'CREATE UNIQUE INDEX idx_entity_aliases_unique ON entity_aliases (canonical, alias)',
+      'CREATE INDEX idx_entity_aliases_canonical ON entity_aliases (canonical)',
+      'CREATE INDEX idx_entity_aliases_alias ON entity_aliases (alias)',
     ],
   });
   app.save(aliases);

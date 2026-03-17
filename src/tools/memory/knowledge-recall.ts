@@ -9,6 +9,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { KnowledgeRecord, DecisionRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 import { expandQueryWithAliases } from '../../search/alias-expansion.js';
 
@@ -21,6 +22,7 @@ export function registerKnowledgeRecall(server: McpServer, adapter: DataAdapter)
       type: z.enum(['fact', 'pattern', 'insight', 'lesson', 'reference']).optional().describe('Filter by knowledge type'),
       limit: z.number().int().min(1).max(50).optional().describe('Max results (default 10)'),
     },
+    { readOnlyHint: true },
     withGracefulDegradation('knowledge', adapter, async (params) => {
       try {
         const resultLimit = params.limit ?? 10;
@@ -31,7 +33,7 @@ export function registerKnowledgeRecall(server: McpServer, adapter: DataAdapter)
             ? [[{ field: 'type' as const, op: 'eq' as const, value: params.type }]]
             : undefined;
 
-          const result = await adapter.list<Record<string, unknown>>('knowledge', {
+          const result = await adapter.list<KnowledgeRecord>('knowledge', {
             filter,
             sort: [{ field: 'created_at', direction: 'desc' }],
             page: { limit: resultLimit, offset: 0 },
@@ -56,7 +58,7 @@ export function registerKnowledgeRecall(server: McpServer, adapter: DataAdapter)
           ? [[{ field: 'type' as const, op: 'eq' as const, value: params.type }]]
           : undefined;
 
-        const knowledgeResults = await adapter.textSearch<Record<string, unknown>>(
+        const knowledgeResults = await adapter.textSearch<KnowledgeRecord>(
           'knowledge',
           expandedQuery,
           {
@@ -71,7 +73,7 @@ export function registerKnowledgeRecall(server: McpServer, adapter: DataAdapter)
         try {
           const decisionsExist = await adapter.collectionExists('decisions');
           if (decisionsExist) {
-            decisionResults = await adapter.textSearch<Record<string, unknown>>(
+            decisionResults = await adapter.textSearch<DecisionRecord>(
               'decisions',
               expandedQuery,
               {

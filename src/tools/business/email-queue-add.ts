@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { EmailQueueRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerEmailQueueAdd(server: McpServer, adapter: DataAdapter): void {
@@ -26,7 +27,7 @@ export function registerEmailQueueAdd(server: McpServer, adapter: DataAdapter): 
     },
     withGracefulDegradation('email_queue', adapter, async (params) => {
       try {
-        const record = await adapter.create<Record<string, unknown>>('email_queue', {
+        const record = await adapter.create<EmailQueueRecord>('email_queue', {
           to_email: params.to_email,
           to_name: params.to_name ?? null,
           subject: params.subject,

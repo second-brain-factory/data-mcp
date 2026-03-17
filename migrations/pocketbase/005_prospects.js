@@ -23,6 +23,9 @@ migrate((app) => {
       { name: 'tags', type: 'json' },
       { name: 'linkedin_url', type: 'url', options: { maxSize: 500 } },
     ],
+    indexes: [
+      'CREATE INDEX idx_prospects_stage ON prospects (stage)',
+    ],
   });
   app.save(prospects);
 }, (app) => {

@@ -17,6 +17,10 @@ migrate((app) => {
       { name: 'key_results', type: 'json' },
       { name: 'tags', type: 'json' },
     ],
+    indexes: [
+      'CREATE INDEX idx_goals_status ON goals (status)',
+      'CREATE INDEX idx_goals_timeframe ON goals (timeframe)',
+    ],
   });
   app.save(goals);
 
@@ -32,6 +36,10 @@ migrate((app) => {
       { name: 'due_date', type: 'date' },
       { name: 'tags', type: 'json' },
       { name: 'goal_id', type: 'text', options: { maxSize: 100 } },
+    ],
+    indexes: [
+      'CREATE INDEX idx_tasks_status ON tasks (status)',
+      'CREATE INDEX idx_tasks_priority ON tasks (priority)',
     ],
   });
   app.save(tasks);

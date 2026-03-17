@@ -7,6 +7,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { DataAdapter } from '../../adapter/types.js';
+import type { TaskRecord } from '../../types/records.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 
 export function registerTaskCreate(server: McpServer, adapter: DataAdapter): void {
@@ -23,7 +24,7 @@ export function registerTaskCreate(server: McpServer, adapter: DataAdapter): voi
     },
     withGracefulDegradation('tasks', adapter, async (params) => {
       try {
-        const record = await adapter.create<Record<string, unknown>>('tasks', {
+        const record = await adapter.create<TaskRecord>('tasks', {
           title: params.title.trim(),
           description: params.description ?? null,
           status: 'todo',

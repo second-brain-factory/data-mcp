@@ -23,6 +23,7 @@ migrate((app) => {
     ],
     indexes: [
       'CREATE UNIQUE INDEX idx_blog_posts_slug ON blog_posts (slug)',
+      'CREATE INDEX idx_blog_posts_status ON blog_posts (status)',
     ],
   });
   app.save(blogPosts);
@@ -46,6 +47,9 @@ migrate((app) => {
       { name: 'error', type: 'editor' },
       { name: 'resend_id', type: 'text', options: { maxSize: 200 } },
     ],
+    indexes: [
+      'CREATE INDEX idx_email_queue_status ON email_queue (status)',
+    ],
   });
   app.save(emailQueue);
 
@@ -62,6 +66,10 @@ migrate((app) => {
       { name: 'scheduled_date', type: 'date' },
       { name: 'published_url', type: 'url', options: { maxSize: 500 } },
       { name: 'persona', type: 'text', options: { maxSize: 100 } },
+    ],
+    indexes: [
+      'CREATE INDEX idx_content_calendar_platform ON content_calendar (platform)',
+      'CREATE INDEX idx_content_calendar_status ON content_calendar (status)',
     ],
   });
   app.save(contentCalendar);

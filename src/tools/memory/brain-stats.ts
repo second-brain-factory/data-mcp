@@ -21,6 +21,7 @@ export function registerBrainStats(server: McpServer, adapter: DataAdapter): voi
     'brain_stats',
     'Get aggregate statistics about your Second Brain. Shows counts for all collections, knowledge breakdown by type, and stale item count.',
     {},
+    { readOnlyHint: true },
     withGracefulDegradation('knowledge', adapter, async () => {
       try {
         // Count all collections in parallel
