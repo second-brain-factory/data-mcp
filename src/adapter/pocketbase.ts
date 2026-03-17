@@ -21,6 +21,8 @@ export class PocketBaseAdapter implements DataAdapter {
     private readonly adminPassword: string
   ) {
     this.pb = new PocketBase(url);
+    // Disable auto-cancellation — MCP server handles concurrent requests
+    this.pb.autoCancellation(false);
   }
 
   private async ensureAuth(): Promise<void> {
@@ -127,9 +129,11 @@ export class PocketBaseAdapter implements DataAdapter {
         }
       }
 
+      // PocketBase 0.25+ doesn't allow sorting by system fields (created/updated).
+      // Use -id which is monotonically increasing (same effect as -created).
       const result = await this.pb.collection(collection).getList(1, limit, {
         filter: fullFilter,
-        sort: '-created',
+        sort: '-id',
       });
 
       return result.items.map((r) => recordToPlain<T>(r));
@@ -340,7 +344,14 @@ function clauseToPocketBase(clause: FilterClause): string {
 
 function sortToPocketBase(sorts: SortClause[]): string {
   return sorts
-    .map((s) => (s.direction === 'desc' ? `-${s.field}` : `+${s.field}`))
+    .map((s) => {
+      // PocketBase 0.25+ doesn't allow sorting by system fields (created/updated).
+      // Map created_at/updated_at to user-sortable alternatives.
+      let field = s.field;
+      if (field === 'created_at' || field === 'created') field = 'id'; // id is monotonically increasing
+      if (field === 'updated_at' || field === 'updated') field = 'id';
+      return s.direction === 'desc' ? `-${field}` : `+${field}`;
+    })
     .join(',');
 }
 
@@ -350,9 +361,10 @@ function sortToPocketBase(sorts: SortClause[]): string {
 function mapPocketBaseError(err: unknown, collection?: string): AdapterError {
   if (err instanceof AdapterError) return err;
 
-  const pbErr = err as { status?: number; response?: { code?: number; message?: string; data?: Record<string, unknown> }; message?: string };
+  const pbErr = err as { status?: number; response?: { code?: number; message?: string; data?: Record<string, unknown> }; message?: string; originalError?: unknown };
   const status = pbErr.status ?? pbErr.response?.code;
   const message = pbErr.response?.message ?? pbErr.message ?? 'Unknown PocketBase error';
+
 
   if (status === 404) {
     // Could be collection not found or record not found
