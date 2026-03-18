@@ -20,8 +20,8 @@ export function registerGoalCreate(server: McpServer, adapter: DataAdapter): voi
       timeframe: z.enum(['daily', 'weekly', 'monthly', 'quarterly', 'yearly']).describe('Timeframe for the goal'),
       key_results: z.array(z.object({
         description: z.string().max(500),
-        target: z.number().optional(),
-        current: z.number().optional(),
+        target: z.union([z.number(), z.string()]).optional(),
+        current: z.union([z.number(), z.string()]).optional(),
       })).optional().describe('Key results to track progress'),
       tags: z.array(z.string().max(100)).max(20).optional().describe('Tags for categorization'),
     },
