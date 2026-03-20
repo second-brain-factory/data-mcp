@@ -7,6 +7,7 @@
 
 export interface BaseRecord extends Record<string, unknown> {
   id: string;
+  owner_id?: string;
   created_at: string;
   updated_at?: string;
 }
@@ -18,18 +19,25 @@ export interface KnowledgeRecord extends BaseRecord {
   summary?: string;
   tags?: string[];
   source?: string;
+  source_file?: string;
   confidence?: number;
   last_validated_at?: string;
+  decay_score?: number;
+  triggers?: unknown;
+  metadata?: Record<string, unknown>;
 }
 
 export interface DecisionRecord extends BaseRecord {
   title: string;
   context?: string;
-  options_considered: string[];
+  options_considered?: string[];
   chosen_option: string;
   rationale?: string;
   outcome?: string;
+  outcome_rating?: string;
+  session_id?: string;
   tags?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface SessionRecord extends BaseRecord {
@@ -51,10 +59,11 @@ export interface SessionRecord extends BaseRecord {
 export interface GoalRecord extends BaseRecord {
   title: string;
   description?: string;
-  timeframe: string;
+  timeframe?: string;
   status: string;
   key_results?: Array<{ description: string; target?: number; current?: number }>;
   tags?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface TaskRecord extends BaseRecord {
@@ -65,6 +74,7 @@ export interface TaskRecord extends BaseRecord {
   due_date?: string;
   tags?: string[];
   goal_id?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ContactRecord extends BaseRecord {
@@ -77,6 +87,8 @@ export interface ContactRecord extends BaseRecord {
   notes?: string;
   tags?: string[];
   last_contact_date?: string;
+  last_interaction_at?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ProspectRecord extends BaseRecord {
