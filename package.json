@@ -1,7 +1,7 @@
 {
   "name": "@second-brain/data-mcp",
-  "version": "0.1.0",
-  "description": "Unified data MCP server for Second Brain — PocketBase and Supabase adapters",
+  "version": "0.2.0",
+  "description": "Unified data MCP server for Second Brain \u2014 PocketBase and Supabase adapters",
   "type": "module",
   "bin": {
     "data-mcp": "./dist/index.js"
@@ -29,6 +29,9 @@
     "supabase",
     "knowledge-management"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=20"
