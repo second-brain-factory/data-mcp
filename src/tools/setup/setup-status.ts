@@ -22,6 +22,8 @@ const EXPECTED_COLLECTIONS = [
   'blog_posts',
   'email_queue',
   'content_calendar',
+  'newsletter_subscribers',
+  'affiliates',
 ];
 
 export function registerSetupStatus(server: McpServer, adapter: DataAdapter): void {

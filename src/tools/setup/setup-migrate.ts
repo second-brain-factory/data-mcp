@@ -23,6 +23,8 @@ const COLLECTION_SCHEMAS: Array<{ name: string; description: string }> = [
   { name: 'blog_posts', description: 'Blog post content' },
   { name: 'email_queue', description: 'Email queue for sending' },
   { name: 'content_calendar', description: 'Content calendar entries' },
+  { name: 'newsletter_subscribers', description: 'Newsletter subscriber list' },
+  { name: 'affiliates', description: 'Affiliate partners and commissions' },
 ];
 
 export function registerSetupMigrate(server: McpServer, adapter: DataAdapter): void {
