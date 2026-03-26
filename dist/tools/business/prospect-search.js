@@ -1,0 +1,29 @@
+/**
+ * Tool: prospect_search
+ *
+ * Search prospects by name, company, or notes.
+ */
+import { z } from 'zod';
+import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
+export function registerProspectSearch(server, adapter) {
+    server.tool('prospect_search', 'Search prospects by name, company, or notes.', {
+        query: z.string().min(1).max(200).describe('Search query'),
+        limit: z.number().int().min(1).max(50).optional().describe('Max results (default 10)'),
+    }, { readOnlyHint: true }, withGracefulDegradation('prospects', adapter, async (params) => {
+        try {
+            const results = await adapter.textSearch('prospects', params.query, {
+                fields: ['name', 'company', 'notes', 'email'],
+                limit: params.limit ?? 10,
+            });
+            return makeToolResponse({
+                results,
+                total: results.length,
+                query: params.query,
+            });
+        }
+        catch (error) {
+            return handleAdapterError(error, 'prospect_search');
+        }
+    }));
+}
+//# sourceMappingURL=prospect-search.js.map
