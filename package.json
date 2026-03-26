@@ -1,6 +1,6 @@
 {
   "name": "@iwo-szapar/data-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Unified data MCP server for Second Brain \u2014 PocketBase and Supabase adapters",
   "type": "module",
   "bin": {

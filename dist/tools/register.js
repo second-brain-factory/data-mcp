@@ -1,7 +1,7 @@
 /**
- * Tool registration — imports and calls all 35 register functions.
+ * Tool registration — imports and calls all 39 register functions.
  */
-// Memory tools (22)
+// Memory tools (26)
 import { registerKnowledgeStore } from './memory/knowledge-store.js';
 import { registerKnowledgeRecall } from './memory/knowledge-recall.js';
 import { registerKnowledgeLearn } from './memory/knowledge-learn.js';
@@ -24,6 +24,10 @@ import { registerContactList } from './memory/contact-list.js';
 import { registerContactSearch } from './memory/contact-search.js';
 import { registerBrainStats } from './memory/brain-stats.js';
 import { registerBrainDecay } from './memory/brain-decay.js';
+import { registerLinkCreate } from './memory/link-create.js';
+import { registerLinkDelete } from './memory/link-delete.js';
+import { registerLinkRelated } from './memory/link-related.js';
+import { registerLinkSuggest } from './memory/link-suggest.js';
 // Setup tools (3)
 import { registerSetupStatus } from './setup/setup-status.js';
 import { registerSetupMigrate } from './setup/setup-migrate.js';
@@ -64,6 +68,10 @@ export function registerAllTools(server, adapter) {
     registerContactSearch(server, adapter);
     registerBrainStats(server, adapter);
     registerBrainDecay(server, adapter);
+    registerLinkCreate(server, adapter);
+    registerLinkDelete(server, adapter);
+    registerLinkRelated(server, adapter);
+    registerLinkSuggest(server, adapter);
     // Setup tools
     registerSetupStatus(server, adapter);
     registerSetupMigrate(server, adapter);
