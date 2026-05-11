@@ -5,11 +5,15 @@
  */
 import { PocketBaseAdapter } from './pocketbase.js';
 import { SupabaseAdapter } from './supabase.js';
+import { MarkdownAdapter } from './markdown.js';
 import { SchemaMap, SchemaMapProxy } from './schema-map.js';
 export function createAdapter(config) {
     let adapter;
     if (config.backend === 'pocketbase') {
         adapter = new PocketBaseAdapter(config.pocketbaseUrl, config.pocketbaseAdminEmail, config.pocketbaseAdminPassword);
+    }
+    else if (config.backend === 'markdown') {
+        adapter = new MarkdownAdapter(config.markdownRoot);
     }
     else {
         adapter = new SupabaseAdapter(config.supabaseUrl, config.supabaseKey);

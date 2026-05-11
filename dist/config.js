@@ -1,19 +1,21 @@
 /**
  * Configuration parsing from environment variables.
  *
- * SB_BACKEND: 'pocketbase' | 'supabase' (required)
+ * SB_BACKEND: 'pocketbase' | 'supabase' | 'markdown' (required)
  * SB_POCKETBASE_URL: PocketBase server URL (required if backend=pocketbase)
  * SB_POCKETBASE_ADMIN_EMAIL: PocketBase admin email (required if backend=pocketbase)
  * SB_POCKETBASE_ADMIN_PASSWORD: PocketBase admin password (required if backend=pocketbase)
  * SB_SUPABASE_URL: Supabase project URL (required if backend=supabase)
  * SB_SUPABASE_KEY: Supabase service role key (required if backend=supabase)
+ * SB_MARKDOWN_ROOT: filesystem path to the memory/ folder (required if backend=markdown)
  * SB_SCHEMA_MAP: JSON string mapping logical names to actual table names (optional)
  * SB_RESEND_API_KEY: Resend API key for email sending (optional)
  */
+const ALLOWED_BACKENDS = ['pocketbase', 'supabase', 'markdown'];
 export function parseConfig() {
     const backend = requireEnv('SB_BACKEND');
-    if (backend !== 'pocketbase' && backend !== 'supabase') {
-        throw new Error(`SB_BACKEND must be 'pocketbase' or 'supabase', got '${backend}'`);
+    if (!ALLOWED_BACKENDS.includes(backend)) {
+        throw new Error(`SB_BACKEND must be one of ${ALLOWED_BACKENDS.join('|')}, got '${backend}'`);
     }
     const schemaMap = parseSchemaMap(process.env.SB_SCHEMA_MAP);
     const resendApiKey = process.env.SB_RESEND_API_KEY || undefined;
@@ -23,6 +25,14 @@ export function parseConfig() {
             pocketbaseUrl: requireEnv('SB_POCKETBASE_URL'),
             pocketbaseAdminEmail: requireEnv('SB_POCKETBASE_ADMIN_EMAIL'),
             pocketbaseAdminPassword: requireEnv('SB_POCKETBASE_ADMIN_PASSWORD'),
+            schemaMap,
+            resendApiKey,
+        };
+    }
+    if (backend === 'markdown') {
+        return {
+            backend,
+            markdownRoot: requireEnv('SB_MARKDOWN_ROOT'),
             schemaMap,
             resendApiKey,
         };
