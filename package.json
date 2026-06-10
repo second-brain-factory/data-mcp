@@ -1,7 +1,7 @@
 {
   "name": "@iwo-szapar/data-mcp",
   "version": "0.7.0",
-  "description": "Unified data MCP server for Second Brain — PocketBase and Supabase adapters. 40 tools: knowledge, sessions, goals, tasks, contacts, CRM, blog, email, content calendar.",
+  "description": "Unified data MCP server for Second Brain — markdown, Supabase, and PocketBase backends. 41 tools: knowledge, sessions, goals, tasks, contacts, links, CRM, blog, email, content calendar. Optional team mode via owner scoping.",
   "author": "Iwo Szapar <iwo.szapar@gmail.com> (https://iwoszapar.com)",
   "homepage": "https://iwoszapar.com/second-brain-ai",
   "bugs": {
@@ -23,6 +23,7 @@
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
+    "test:e2e": "node scripts/team-e2e.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/"

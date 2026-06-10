@@ -23,3 +23,5 @@ jobs:
         run: npm run build
       - name: Smoke test (stdio, 41 tools)
         run: node scripts/smoke-test.mjs
+      - name: Team E2E (owner scoping, markdown backend, 18 checks)
+        run: node scripts/team-e2e.mjs
