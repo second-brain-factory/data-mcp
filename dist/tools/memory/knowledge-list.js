@@ -9,6 +9,7 @@ export function registerKnowledgeList(server, adapter) {
     server.tool('knowledge_list', 'List knowledge items with optional type and tag filters. Supports pagination.', {
         type: z.enum(['fact', 'pattern', 'insight', 'lesson', 'reference']).optional().describe('Filter by knowledge type'),
         tags: z.array(z.string()).optional().describe('Filter by tags (items must contain ALL specified tags)'),
+        owner_scope: z.enum(['private', 'shared']).optional().describe('Filter to private or shared team memory'),
         limit: z.number().int().min(1).max(100).optional().describe('Max results (default 20)'),
         offset: z.number().int().min(0).optional().describe('Offset for pagination (default 0)'),
     }, { readOnlyHint: true }, withGracefulDegradation('knowledge', adapter, async (params) => {
@@ -21,6 +22,9 @@ export function registerKnowledgeList(server, adapter) {
                 for (const tag of params.tags) {
                     clauses.push({ field: 'tags', op: 'contains', value: tag });
                 }
+            }
+            if (params.owner_scope && adapter.ownerScopeEnabled) {
+                clauses.push({ field: 'owner_scope', op: 'eq', value: params.owner_scope });
             }
             const filter = clauses.length > 0 ? [clauses] : undefined;
             const result = await adapter.list('knowledge', {

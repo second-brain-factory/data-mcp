@@ -2,6 +2,13 @@
  * Tool: setup_status
  *
  * Check backend connection, list existing/missing collections, report status.
+ *
+ * RC-1 fix (incident 2026-05-11): Previously called adapter.listCollections()
+ * which uses rpc('get_public_tables') — a custom Postgres function absent from
+ * fresh Supabase projects. Fallback to information_schema also failed because
+ * PostgREST only exposes the public schema. Now uses the same code path as
+ * setup_migrate (adapter.collectionExists per expected collection) so the
+ * diagnostic agrees with the data tools.
  */
 import { makeToolResponse, makeErrorResponse } from '../shared.js';
 const EXPECTED_COLLECTIONS = [
@@ -23,20 +30,18 @@ const EXPECTED_COLLECTIONS = [
 export function registerSetupStatus(server, adapter) {
     server.tool('setup_status', 'Check database connection status, list existing and missing collections, and report schema readiness.', {}, { readOnlyHint: true }, async () => {
         try {
-            // Test connection by listing collections
-            const existing = await adapter.listCollections();
-            const existingSet = new Set(existing);
             const present = [];
             const missing = [];
             for (const collection of EXPECTED_COLLECTIONS) {
-                if (existingSet.has(collection)) {
+                const exists = await adapter.collectionExists(collection);
+                if (exists) {
                     present.push(collection);
                 }
                 else {
                     missing.push(collection);
                 }
             }
-            // Check for settings table and schema version
+            const existingSet = new Set(present);
             let schemaVersion = null;
             if (existingSet.has('settings')) {
                 try {

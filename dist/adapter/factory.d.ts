@@ -1,7 +1,7 @@
 /**
  * Adapter factory — creates the correct DataAdapter based on configuration.
  *
- * Always wraps the adapter in SchemaMapProxy (transparent if no mappings).
+ * Wraps adapters in SchemaMapProxy and optional OwnerScopeProxy.
  */
 import type { Config } from '../config.js';
 import type { DataAdapter } from './types.js';

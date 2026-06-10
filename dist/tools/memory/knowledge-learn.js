@@ -13,6 +13,7 @@ export function registerKnowledgeLearn(server, adapter) {
         content: z.string().min(1).max(10000).describe('Detailed description of the learning'),
         tags: z.array(z.string().max(100)).max(20).optional().describe('Tags for categorization'),
         source: z.string().max(500).optional().describe('Context where this was learned'),
+        owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
     }, withGracefulDegradation('knowledge', adapter, async (params) => {
         try {
             const record = await adapter.create('knowledge', {
@@ -22,6 +23,7 @@ export function registerKnowledgeLearn(server, adapter) {
                 summary: generateSummary(params.content),
                 tags: params.tags ?? [],
                 source: params.source ?? null,
+                ...(adapter.ownerScopeEnabled ? { owner_scope: params.owner_scope } : {}),
                 confidence: 0.8,
                 last_validated_at: new Date().toISOString(),
             });

@@ -14,6 +14,7 @@ export function registerKnowledgeDecide(server, adapter) {
         chosen_option: z.string().min(1).max(500).describe('The option that was chosen'),
         rationale: z.string().max(5000).optional().describe('Why this option was chosen'),
         tags: z.array(z.string().max(100)).max(20).optional().describe('Tags for categorization'),
+        owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
     }, withGracefulDegradation('decisions', adapter, async (params) => {
         try {
             const record = await adapter.create('decisions', {
@@ -24,6 +25,7 @@ export function registerKnowledgeDecide(server, adapter) {
                 rationale: params.rationale ?? null,
                 outcome: null,
                 tags: params.tags ?? [],
+                ...(adapter.ownerScopeEnabled ? { owner_scope: params.owner_scope } : {}),
             });
             return makeToolResponse({
                 stored: true,

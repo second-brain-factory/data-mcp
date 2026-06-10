@@ -16,6 +16,7 @@ export function registerGoalCreate(server, adapter) {
             current: z.union([z.number(), z.string()]).optional(),
         })).optional().describe('Key results to track progress'),
         tags: z.array(z.string().max(100)).max(20).optional().describe('Tags for categorization'),
+        owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
     }, withGracefulDegradation('goals', adapter, async (params) => {
         try {
             const record = await adapter.create('goals', {
@@ -25,6 +26,7 @@ export function registerGoalCreate(server, adapter) {
                 status: 'active',
                 key_results: params.key_results ?? [],
                 tags: params.tags ?? [],
+                ...(adapter.ownerScopeEnabled ? { owner_scope: params.owner_scope } : {}),
             });
             return makeToolResponse({
                 created: true,

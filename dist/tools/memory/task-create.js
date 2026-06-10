@@ -13,6 +13,7 @@ export function registerTaskCreate(server, adapter) {
         due_date: z.string().max(50).optional().describe('Due date (ISO format)'),
         tags: z.array(z.string().max(100)).max(20).optional().describe('Tags for categorization'),
         goal_id: z.string().min(1).optional().describe('Related goal ID'),
+        owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
     }, withGracefulDegradation('tasks', adapter, async (params) => {
         try {
             const record = await adapter.create('tasks', {
@@ -23,6 +24,7 @@ export function registerTaskCreate(server, adapter) {
                 due_date: params.due_date ?? null,
                 tags: params.tags ?? [],
                 goal_id: params.goal_id ?? null,
+                ...(adapter.ownerScopeEnabled ? { owner_scope: params.owner_scope } : {}),
             });
             return makeToolResponse({
                 created: true,

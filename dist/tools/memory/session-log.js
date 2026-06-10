@@ -24,6 +24,7 @@ export function registerSessionLog(server, adapter) {
         })).optional().describe('Patterns learned during the session'),
         knowledge_created: z.number().int().min(0).optional().describe('Number of knowledge items created'),
         knowledge_updated: z.number().int().min(0).optional().describe('Number of knowledge items updated'),
+        owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
         metadata: z.record(z.unknown()).optional().describe('Additional metadata'),
     }, withGracefulDegradation('sessions', adapter, async (params) => {
         try {
@@ -40,6 +41,7 @@ export function registerSessionLog(server, adapter) {
                 patterns_learned: params.patterns_learned ?? [],
                 knowledge_created: params.knowledge_created ?? 0,
                 knowledge_updated: params.knowledge_updated ?? 0,
+                ...(adapter.ownerScopeEnabled ? { owner_scope: params.owner_scope } : {}),
                 metadata: params.metadata ?? null,
             });
             return makeToolResponse({

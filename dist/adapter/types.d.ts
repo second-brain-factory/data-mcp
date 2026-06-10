@@ -34,7 +34,7 @@ export interface ListResult<T> {
 }
 export interface DataAdapter {
     /** Backend identifier */
-    readonly backend: 'pocketbase' | 'supabase';
+    readonly backend: 'pocketbase' | 'supabase' | 'markdown';
     /** Create a record in a collection */
     create<T extends Record<string, unknown>>(collection: string, data: Record<string, unknown>): Promise<T>;
     /** Get a single record by ID */
@@ -63,5 +63,6 @@ export interface DataAdapter {
     collectionExists(collection: string): Promise<boolean>;
     /** List all collection names */
     listCollections(): Promise<string[]>;
+    readonly ownerScopeEnabled?: boolean;
 }
 //# sourceMappingURL=types.d.ts.map
