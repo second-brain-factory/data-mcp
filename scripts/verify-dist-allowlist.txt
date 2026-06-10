@@ -1,0 +1,27 @@
+# verify-dist Class B allowlist (issue-1219)
+# Canon files that are hand-authored or stale — never raw tsc output.
+# Each entry is verified semantically; evidence in docs/verify-dist-allowlist.md.
+# "extra:" prefix = file we emit that canon lacks (superset for hand-authored modules).
+adapter/markdown.js
+adapter/markdown.d.ts
+adapter/owner-scope.js
+adapter/owner-scope.d.ts
+tools/memory/link-suggest.js
+tools/register.d.ts
+tools/setup/setup-migrate.d.ts
+tools/setup/setup-status.d.ts
+extra:adapter/markdown.d.ts.map
+extra:adapter/markdown.js.map
+extra:adapter/owner-scope.d.ts.map
+extra:adapter/owner-scope.js.map
+extra:tools/memory/link-create.d.ts.map
+extra:tools/memory/link-create.js.map
+extra:tools/memory/link-delete.d.ts.map
+extra:tools/memory/link-delete.js.map
+extra:tools/memory/link-related.d.ts.map
+extra:tools/memory/link-related.js.map
+extra:tools/memory/link-suggest.d.ts.map
+extra:tools/memory/link-suggest.js.map
+extra:tools/setup/setup-bootstrap.d.ts
+extra:tools/setup/setup-bootstrap.d.ts.map
+extra:tools/setup/setup-bootstrap.js.map
