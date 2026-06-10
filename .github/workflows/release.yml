@@ -1,0 +1,41 @@
+name: Release
+
+# Publishes to npm when a v* tag is pushed.
+# Requires the NPM_TOKEN repository secret (npm automation token with
+# publish rights on @iwo-szapar/data-mcp).
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: verify-dist gate
+        run: bash scripts/verify-dist.sh
+      - name: Build
+        run: npm run build
+      - name: Smoke test
+        run: node scripts/smoke-test.mjs
+      - name: Assert tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+      - name: Publish
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

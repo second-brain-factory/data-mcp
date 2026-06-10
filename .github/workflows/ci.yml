@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 't0/**']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: verify-dist gate (byte-compare vs canonical dist)
+        run: bash scripts/verify-dist.sh
+      - name: Build
+        run: npm run build
+      - name: Smoke test (stdio, 41 tools)
+        run: node scripts/smoke-test.mjs
