@@ -15,37 +15,30 @@
  * Spec: docs/prds/active/PRD-SB3-DUAL-MODE-A3-DATA-MCP-MARKDOWN.md
  * (factory-dev repo)
  */
-
 import { promises as fs } from 'node:fs';
 import { join, basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { AdapterError } from '../errors/adapter-error.js';
-
 export class MarkdownAdapter {
     root;
     backend = 'markdown';
-
     constructor(root) {
         if (!root) {
             throw new AdapterError('config', 'MarkdownAdapter requires a non-empty root path');
         }
         this.root = root;
     }
-
     collectionDir(collection) {
         validateName(collection, 'collection');
         return join(this.root, collection);
     }
-
     recordPath(collection, id) {
         validateName(id, 'id');
         return join(this.collectionDir(collection), `${id}.md`);
     }
-
     async ensureCollection(collection) {
         await fs.mkdir(this.collectionDir(collection), { recursive: true });
     }
-
     async readRecord(collection, id) {
         let raw;
         try {
@@ -60,7 +53,6 @@ export class MarkdownAdapter {
         const { frontmatter, body } = parseFrontmatter(raw);
         return { ...frontmatter, id, body };
     }
-
     async writeRecord(collection, id, data) {
         await this.ensureCollection(collection);
         const { body = '', id: _ignored, ...frontmatter } = data;
@@ -72,7 +64,6 @@ export class MarkdownAdapter {
             throw new AdapterError('io', `failed to write ${collection}/${id}: ${err?.message || err}`);
         }
     }
-
     async create(collection, data) {
         const id = (data.id && String(data.id)) || randomUUID();
         validateName(id, 'id');
@@ -86,11 +77,9 @@ export class MarkdownAdapter {
         await this.writeRecord(collection, id, record);
         return record;
     }
-
     async getOne(collection, id) {
         return this.readRecord(collection, id);
     }
-
     async list(collection, options = {}) {
         const dir = this.collectionDir(collection);
         const limit = options.page?.limit ?? 50;
@@ -125,11 +114,11 @@ export class MarkdownAdapter {
             perPage: limit,
         };
     }
-
     async textSearch(collection, query, options = {}) {
         const all = await this.list(collection, { filter: options.filter });
         const q = String(query).toLowerCase();
-        if (q.length === 0) return [];
+        if (q.length === 0)
+            return [];
         const fields = options.fields;
         const ranked = all.items
             .map((item) => ({ item, score: scoreItem(item, q, fields) }))
@@ -139,14 +128,12 @@ export class MarkdownAdapter {
             .map((r) => r.item);
         return ranked;
     }
-
     async update(collection, id, data) {
         const existing = await this.readRecord(collection, id);
         const merged = { ...existing, ...data, id, updated: new Date().toISOString() };
         await this.writeRecord(collection, id, merged);
         return merged;
     }
-
     async delete(collection, id) {
         const src = this.recordPath(collection, id);
         const archiveDir = join(this.root, '_archive', collection);
@@ -161,7 +148,6 @@ export class MarkdownAdapter {
             throw new AdapterError('io', `failed to delete ${collection}/${id}: ${err?.message || err}`);
         }
     }
-
     async upsert(collection, data, uniqueFields) {
         if (!uniqueFields || uniqueFields.length === 0) {
             throw new AdapterError('validation', 'upsert requires at least one uniqueField');
@@ -175,13 +161,11 @@ export class MarkdownAdapter {
         }
         return this.create(collection, data);
     }
-
     async count(collection, filter) {
         // Lightweight count — reuses list() so it respects the same filter semantics.
         const all = await this.list(collection, { filter });
         return all.totalItems;
     }
-
     async collectionExists(collection) {
         try {
             const s = await fs.stat(this.collectionDir(collection));
@@ -191,7 +175,15 @@ export class MarkdownAdapter {
             return false;
         }
     }
-
+    async createCollection(collection) {
+        // Markdown "schema" is just a directory per collection. Idempotent.
+        try {
+            await fs.mkdir(this.collectionDir(collection), { recursive: true });
+        }
+        catch (err) {
+            throw new AdapterError('io', `failed to create collection ${collection}: ${err?.message || err}`);
+        }
+    }
     async listCollections() {
         try {
             const entries = await fs.readdir(this.root, { withFileTypes: true });
@@ -200,14 +192,13 @@ export class MarkdownAdapter {
                 .map((e) => e.name);
         }
         catch (err) {
-            if (err && err.code === 'ENOENT') return [];
+            if (err && err.code === 'ENOENT')
+                return [];
             throw new AdapterError('io', `failed to list collections: ${err?.message || err}`);
         }
     }
 }
-
 // ─── helpers ────────────────────────────────────────────────────────────────
-
 // Path-traversal guard: ids and collection names cannot contain separators,
 // leading dots, or null bytes. Match PocketBase's record-id constraints
 // loosely; we just need to refuse anything that could escape <root>.
@@ -219,33 +210,34 @@ function validateName(value, label) {
         throw new AdapterError('validation', `${label} contains forbidden characters: ${value}`);
     }
 }
-
 function scoreItem(item, q, fields) {
     // Default ranking: tag-match (3pts) > title-match (2pts) > body-match (1pt).
     // If `fields` is specified, only those are searched (with title>body>everything-else fallback).
     if (fields && fields.length > 0) {
         for (const f of fields) {
             const v = item[f];
-            if (typeof v === 'string' && v.toLowerCase().includes(q)) return f === 'tags' ? 3 : f === 'title' ? 2 : 1;
-            if (Array.isArray(v) && v.some((x) => String(x).toLowerCase().includes(q))) return 3;
+            if (typeof v === 'string' && v.toLowerCase().includes(q))
+                return f === 'tags' ? 3 : f === 'title' ? 2 : 1;
+            if (Array.isArray(v) && v.some((x) => String(x).toLowerCase().includes(q)))
+                return 3;
         }
         return 0;
     }
     const tags = Array.isArray(item.tags) ? item.tags.map((t) => String(t).toLowerCase()) : [];
-    if (tags.some((t) => t.includes(q))) return 3;
-    if (typeof item.title === 'string' && item.title.toLowerCase().includes(q)) return 2;
-    if (typeof item.body === 'string' && item.body.toLowerCase().includes(q)) return 1;
-    if (typeof item.content === 'string' && item.content.toLowerCase().includes(q)) return 1;
+    if (tags.some((t) => t.includes(q)))
+        return 3;
+    if (typeof item.title === 'string' && item.title.toLowerCase().includes(q))
+        return 2;
+    if (typeof item.body === 'string' && item.body.toLowerCase().includes(q))
+        return 1;
+    if (typeof item.content === 'string' && item.content.toLowerCase().includes(q))
+        return 1;
     return 0;
 }
-
 function applyFilter(items, filter) {
     // Filter is OR-of-AND groups (matching the existing Filter type).
-    return items.filter((item) =>
-        filter.some((andGroup) => andGroup.every((clause) => matchClause(item, clause))),
-    );
+    return items.filter((item) => filter.some((andGroup) => andGroup.every((clause) => matchClause(item, clause))));
 }
-
 function matchClause(item, clause) {
     const v = item[clause.field];
     const target = clause.value;
@@ -266,24 +258,24 @@ function matchClause(item, clause) {
         default: return false;
     }
 }
-
 function applySort(items, sort) {
     return [...items].sort((a, b) => {
         for (const s of sort) {
             const av = a[s.field];
             const bv = b[s.field];
-            if (av === bv) continue;
-            if (av == null) return s.direction === 'desc' ? 1 : -1;
-            if (bv == null) return s.direction === 'desc' ? -1 : 1;
+            if (av === bv)
+                continue;
+            if (av == null)
+                return s.direction === 'desc' ? 1 : -1;
+            if (bv == null)
+                return s.direction === 'desc' ? -1 : 1;
             const cmp = av < bv ? -1 : 1;
             return s.direction === 'desc' ? -cmp : cmp;
         }
         return 0;
     });
 }
-
 // ─── minimal YAML frontmatter parser/serializer ────────────────────────────
-
 function parseFrontmatter(raw) {
     // Format: `---\n<yaml>\n---\n<body>` (LF or CRLF tolerated).
     // If no opening `---`, treat entire content as body with no frontmatter.
@@ -298,10 +290,10 @@ function parseFrontmatter(raw) {
     }
     const yamlBlock = rest.slice(0, endIdx);
     let body = rest.slice(endIdx + 4);
-    if (body.startsWith('\n')) body = body.slice(1);
+    if (body.startsWith('\n'))
+        body = body.slice(1);
     return { frontmatter: parseSimpleYaml(yamlBlock), body: body.trim() };
 }
-
 function parseSimpleYaml(block) {
     const out = {};
     const lines = block.split('\n');
@@ -309,9 +301,15 @@ function parseSimpleYaml(block) {
     while (i < lines.length) {
         const line = lines[i];
         const trimmed = line.replace(/\s+$/, '');
-        if (!trimmed || trimmed.startsWith('#')) { i++; continue; }
+        if (!trimmed || trimmed.startsWith('#')) {
+            i++;
+            continue;
+        }
         const colonIdx = trimmed.indexOf(':');
-        if (colonIdx === -1) { i++; continue; }
+        if (colonIdx === -1) {
+            i++;
+            continue;
+        }
         const key = trimmed.slice(0, colonIdx).trim();
         const rawValue = trimmed.slice(colonIdx + 1).trim();
         if (rawValue === '') {
@@ -343,11 +341,13 @@ function parseSimpleYaml(block) {
     }
     return out;
 }
-
 function parseScalar(v) {
-    if (v === '' || v === '~' || v === 'null') return null;
-    if (v === 'true') return true;
-    if (v === 'false') return false;
+    if (v === '' || v === '~' || v === 'null')
+        return null;
+    if (v === 'true')
+        return true;
+    if (v === 'false')
+        return false;
     // Quoted string
     if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
         return v.slice(1, -1);
@@ -355,15 +355,16 @@ function parseScalar(v) {
     // Number
     if (/^-?\d+(\.\d+)?$/.test(v)) {
         const n = Number(v);
-        if (!Number.isNaN(n)) return n;
+        if (!Number.isNaN(n))
+            return n;
     }
     return v;
 }
-
 function stringifyFrontmatter(frontmatter, body) {
     const lines = ['---'];
     for (const [key, value] of Object.entries(frontmatter)) {
-        if (value === undefined) continue;
+        if (value === undefined)
+            continue;
         if (value === null) {
             lines.push(`${key}: null`);
         }
@@ -392,11 +393,13 @@ function stringifyFrontmatter(frontmatter, body) {
     lines.push('');
     return lines.join('\n') + body + (body.endsWith('\n') ? '' : '\n');
 }
-
 function stringifyScalar(v) {
-    if (v === null || v === undefined) return 'null';
-    if (typeof v === 'boolean') return v ? 'true' : 'false';
-    if (typeof v === 'number') return String(v);
+    if (v === null || v === undefined)
+        return 'null';
+    if (typeof v === 'boolean')
+        return v ? 'true' : 'false';
+    if (typeof v === 'number')
+        return String(v);
     const s = String(v);
     // Quote if contains special chars
     if (/[:#\n\[\]{}"',&*!|>%@`]/.test(s) || s.trim() !== s || s === '') {
@@ -404,3 +407,4 @@ function stringifyScalar(v) {
     }
     return s;
 }
+//# sourceMappingURL=markdown.js.map

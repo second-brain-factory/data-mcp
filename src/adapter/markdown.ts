@@ -201,6 +201,16 @@ export class MarkdownAdapter implements DataAdapter {
         }
     }
 
+    async createCollection(collection: string): Promise<void> {
+        // Markdown "schema" is just a directory per collection. Idempotent.
+        try {
+            await fs.mkdir(this.collectionDir(collection), { recursive: true });
+        }
+        catch (err: any) {
+            throw new AdapterError('io' as never, `failed to create collection ${collection}: ${err?.message || err}`);
+        }
+    }
+
     async listCollections(): Promise<string[]> {
         try {
             const entries = await fs.readdir(this.root, { withFileTypes: true });

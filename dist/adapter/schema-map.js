@@ -33,9 +33,14 @@ export class SchemaMap {
 export class SchemaMapProxy {
     inner;
     schema;
+    /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
+    createCollection;
     constructor(inner, schema) {
         this.inner = inner;
         this.schema = schema;
+        if (inner.createCollection) {
+            this.createCollection = (collection) => inner.createCollection(this.schema.resolve(collection));
+        }
     }
     get backend() {
         return this.inner.backend;

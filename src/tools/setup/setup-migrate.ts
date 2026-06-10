@@ -24,6 +24,7 @@ const COLLECTION_SCHEMAS = [
     { name: 'goals', description: 'Goals with key results' },
     { name: 'tasks', description: 'Tasks with status and priority' },
     { name: 'contacts', description: 'Contact information' },
+    { name: 'knowledge_links', description: 'Typed links between knowledge items' },
     { name: 'entity_aliases', description: 'Search alias mappings' },
     { name: 'settings', description: 'Key-value settings store' },
     { name: 'prospects', description: 'Sales prospects (CRM)' },
@@ -34,9 +35,10 @@ const COLLECTION_SCHEMAS = [
     { name: 'affiliates', description: 'Affiliate partners and commissions' },
 ];
 export function registerSetupMigrate(server: McpServer, adapter: DataAdapter): void {
-    server.tool('setup_migrate', 'Create missing database collections/tables. Additive only — existing collections are skipped. For PocketBase, creates collections via API. For Supabase, reports SQL migrations and recommends running setup_bootstrap for paste-ready SQL.', {}, async () => {
+    server.tool('setup_migrate', 'Create missing database collections/tables. Additive only — existing collections are skipped. For markdown, creates collection directories directly. For PocketBase, reports migration files to apply. For Supabase, reports SQL migrations and recommends running setup_bootstrap for paste-ready SQL.', {}, async () => {
         try {
             const skipped: string[] = [];
+            const created: string[] = [];
             const needsMigration: Array<{ name: string; instruction: string }> = [];
             const migrationsPath = adapter.backend === 'supabase' ? PACKAGE_MIGRATIONS_SUPABASE : PACKAGE_MIGRATIONS_POCKETBASE;
             for (const schema of COLLECTION_SCHEMAS) {
@@ -44,6 +46,12 @@ export function registerSetupMigrate(server: McpServer, adapter: DataAdapter): v
                     const exists = await adapter.collectionExists(schema.name);
                     if (exists) {
                         skipped.push(schema.name);
+                        continue;
+                    }
+                    if (adapter.createCollection) {
+                        // Backend can provision storage directly (markdown: mkdir).
+                        await adapter.createCollection(schema.name);
+                        created.push(schema.name);
                         continue;
                     }
                     needsMigration.push({
@@ -63,14 +71,18 @@ export function registerSetupMigrate(server: McpServer, adapter: DataAdapter): v
                 backend: adapter.backend,
                 migrations_path: migrationsPath,
                 existing: skipped.length,
+                created: created.length,
                 needs_migration: needsMigration.length,
                 details: {
                     existing: skipped,
+                    created: created.length > 0 ? created : undefined,
                     needs_migration: needsMigration.length > 0 ? needsMigration : undefined,
                 },
-                message: adapter.backend === 'pocketbase'
-                    ? `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need migration files. Apply from ${migrationsPath}/.`
-                    : `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need SQL. Run setup_bootstrap for a paste-ready block, or apply from ${migrationsPath}/ manually.`,
+                message: adapter.createCollection
+                    ? `Migration complete. ${skipped.length} existing, ${created.length} created. Your Second Brain is ready to use.`
+                    : adapter.backend === 'pocketbase'
+                        ? `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need migration files. Apply from ${migrationsPath}/.`
+                        : `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need SQL. Run setup_bootstrap for a paste-ready block, or apply from ${migrationsPath}/ manually.`,
             });
         }
         catch (error) {

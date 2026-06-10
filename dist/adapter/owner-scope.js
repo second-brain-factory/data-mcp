@@ -1,5 +1,4 @@
 import { AdapterError } from '../errors/adapter-error.js';
-
 const DEFAULT_SCOPED_COLLECTIONS = new Set([
     'knowledge',
     'decisions',
@@ -9,16 +8,20 @@ const DEFAULT_SCOPED_COLLECTIONS = new Set([
     'contacts',
     'knowledge_links',
 ]);
-
 export class OwnerScopeProxy {
     inner;
     ownerId;
     sharedOwnerId;
     ownerScopeEnabled = true;
+    /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
+    createCollection;
     constructor(inner, config) {
         this.inner = inner;
         this.ownerId = config.ownerId;
         this.sharedOwnerId = config.sharedOwnerId;
+        if (inner.createCollection) {
+            this.createCollection = (collection) => inner.createCollection(collection);
+        }
     }
     get backend() {
         return this.inner.backend;
@@ -143,13 +146,12 @@ export class OwnerScopeProxy {
         throw new AdapterError('RECORD_NOT_FOUND', `Record not found in '${collection}'`);
     }
 }
-
 function stripOwnerScope(data) {
     const { owner_scope: _ownerScope, ...clean } = data;
     return clean;
 }
-
 function hasOwnerIntent(data) {
     return Object.prototype.hasOwnProperty.call(data, 'owner_scope')
         || Object.prototype.hasOwnProperty.call(data, 'owner_id');
 }
+//# sourceMappingURL=owner-scope.js.map

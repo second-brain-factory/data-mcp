@@ -21,6 +21,8 @@ export declare class SchemaMap {
 export declare class SchemaMapProxy implements DataAdapter {
     private readonly inner;
     private readonly schema;
+    /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
+    readonly createCollection?: (collection: string) => Promise<void>;
     constructor(inner: DataAdapter, schema: SchemaMap);
     get backend(): 'pocketbase' | 'supabase';
     create<T extends Record<string, unknown>>(collection: string, data: Record<string, unknown>): Promise<T>;

@@ -8,6 +8,8 @@ export declare class OwnerScopeProxy implements DataAdapter {
     private ownerId;
     private sharedOwnerId;
     readonly ownerScopeEnabled = true;
+    /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
+    readonly createCollection?: (collection: string) => Promise<void>;
     constructor(inner: DataAdapter, config: OwnerRoutingConfig);
     get backend(): 'pocketbase' | 'supabase' | 'markdown';
     create<T extends Record<string, unknown>>(collection: string, data: Record<string, unknown>): Promise<T>;
@@ -28,4 +30,14 @@ export declare class OwnerScopeProxy implements DataAdapter {
     count(collection: string, filter?: Filter): Promise<number>;
     collectionExists(collection: string): Promise<boolean>;
     listCollections(): Promise<string[]>;
+    private isScoped;
+    private visibleOwners;
+    private ownerFilter;
+    private withReadFilter;
+    private withWriteOwner;
+    private withUpdateOwner;
+    private resolveWriteOwner;
+    private resolveReadOwners;
+    private assertReadable;
 }
+//# sourceMappingURL=owner-scope.d.ts.map

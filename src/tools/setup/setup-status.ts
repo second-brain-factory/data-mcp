@@ -21,6 +21,7 @@ const EXPECTED_COLLECTIONS = [
     'goals',
     'tasks',
     'contacts',
+    'knowledge_links',
     'entity_aliases',
     'settings',
     'prospects',
