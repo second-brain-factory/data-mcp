@@ -3,8 +3,16 @@
  *
  * Apply migrations — additive only, skips existing collections.
  * Creates all expected collections in the database.
+ *
+ * RC-3 fix (incident 2026-05-11): Replaced hardcoded project-relative
+ * "migrations/supabase/" string with runtime-resolved absolute path to
+ * the bundled SQL files inside this package.
  */
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { makeToolResponse, makeErrorResponse } from '../shared.js';
+const PACKAGE_MIGRATIONS_SUPABASE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'migrations', 'supabase');
+const PACKAGE_MIGRATIONS_POCKETBASE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'migrations', 'pocketbase');
 /** Collection schemas for PocketBase creation */
 const COLLECTION_SCHEMAS = [
     { name: 'knowledge', description: 'Knowledge items (facts, patterns, insights, lessons, references)' },
@@ -23,10 +31,11 @@ const COLLECTION_SCHEMAS = [
     { name: 'affiliates', description: 'Affiliate partners and commissions' },
 ];
 export function registerSetupMigrate(server, adapter) {
-    server.tool('setup_migrate', 'Create missing database collections/tables. Additive only — existing collections are skipped. For PocketBase, creates collections via API. For Supabase, reports SQL migrations to run manually.', {}, async () => {
+    server.tool('setup_migrate', 'Create missing database collections/tables. Additive only — existing collections are skipped. For PocketBase, creates collections via API. For Supabase, reports SQL migrations and recommends running setup_bootstrap for paste-ready SQL.', {}, async () => {
         try {
             const skipped = [];
             const needsMigration = [];
+            const migrationsPath = adapter.backend === 'supabase' ? PACKAGE_MIGRATIONS_SUPABASE : PACKAGE_MIGRATIONS_POCKETBASE;
             for (const schema of COLLECTION_SCHEMAS) {
                 try {
                     const exists = await adapter.collectionExists(schema.name);
@@ -34,18 +43,12 @@ export function registerSetupMigrate(server, adapter) {
                         skipped.push(schema.name);
                         continue;
                     }
-                    if (adapter.backend === 'supabase') {
-                        needsMigration.push({
-                            name: schema.name,
-                            instruction: 'Run SQL migrations from migrations/supabase/ directory.',
-                        });
-                    }
-                    else {
-                        needsMigration.push({
-                            name: schema.name,
-                            instruction: 'Run PocketBase migrations from migrations/pocketbase/ directory.',
-                        });
-                    }
+                    needsMigration.push({
+                        name: schema.name,
+                        instruction: adapter.backend === 'supabase'
+                            ? `Apply SQL from ${migrationsPath}/. Easiest path: call setup_bootstrap for a paste-ready SQL block.`
+                            : `Apply migration from ${migrationsPath}/.`,
+                    });
                 }
                 catch (err) {
                     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -55,6 +58,7 @@ export function registerSetupMigrate(server, adapter) {
             }
             return makeToolResponse({
                 backend: adapter.backend,
+                migrations_path: migrationsPath,
                 existing: skipped.length,
                 needs_migration: needsMigration.length,
                 details: {
@@ -62,8 +66,8 @@ export function registerSetupMigrate(server, adapter) {
                     needs_migration: needsMigration.length > 0 ? needsMigration : undefined,
                 },
                 message: adapter.backend === 'pocketbase'
-                    ? `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need migration files. Run PocketBase migrations from migrations/pocketbase/ directory.`
-                    : `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need SQL migrations. Apply migrations from migrations/supabase/ directory.`,
+                    ? `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need migration files. Apply from ${migrationsPath}/.`
+                    : `Schema check complete. ${skipped.length} existing, ${needsMigration.length} need SQL. Run setup_bootstrap for a paste-ready block, or apply from ${migrationsPath}/ manually.`,
             });
         }
         catch (error) {

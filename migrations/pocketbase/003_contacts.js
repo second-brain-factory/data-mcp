@@ -1,5 +1,6 @@
 /**
  * PocketBase Migration 003: Contacts
+ * PocketBase v0.23+ field format.
  */
 
 /// <reference path="../pb_data/types.d.ts" />
@@ -8,16 +9,18 @@ migrate((app) => {
   const contacts = new Collection({
     name: 'contacts',
     type: 'base',
-    schema: [
-      { name: 'name', type: 'text', required: true, options: { maxSize: 200 } },
-      { name: 'company', type: 'text', options: { maxSize: 200 } },
-      { name: 'role', type: 'text', options: { maxSize: 200 } },
-      { name: 'email', type: 'email', options: { maxSize: 200 } },
-      { name: 'phone', type: 'text', options: { maxSize: 50 } },
-      { name: 'relationship', type: 'select', options: { values: ['colleague', 'client', 'prospect', 'partner', 'other'] } },
-      { name: 'notes', type: 'editor', options: { maxSize: 5000 } },
+    fields: [
+      { name: 'name', type: 'text', required: true, max: 200 },
+      { name: 'company', type: 'text', max: 200 },
+      { name: 'role', type: 'text', max: 200 },
+      { name: 'email', type: 'email' },
+      { name: 'phone', type: 'text', max: 50 },
+      { name: 'relationship', type: 'select', maxSelect: 1, values: ['colleague', 'client', 'prospect', 'partner', 'other'] },
+      { name: 'notes', type: 'editor', maxSize: 5000 },
       { name: 'tags', type: 'json' },
       { name: 'last_contact_date', type: 'date' },
+      { name: 'created', type: 'autodate', onCreate: true },
+      { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
     ],
     indexes: [
       'CREATE INDEX idx_contacts_name ON contacts (name)',
@@ -25,5 +28,5 @@ migrate((app) => {
   });
   app.save(contacts);
 }, (app) => {
-  app.delete(app.findCollectionByNameOrId('contacts'));
+  const c = app.findCollectionByNameOrId('contacts'); if (c) app.delete(c);
 });

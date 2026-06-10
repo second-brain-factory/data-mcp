@@ -8,7 +8,7 @@ import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '.
 export function registerLinkSuggest(server, adapter) {
     server.tool('link_suggest', 'Find knowledge items similar to a given item and suggest links. ' +
         'Uses text search to find related items. Returns matches with suggested relation types.', {
-        item_id: z.string().uuid().describe('UUID of the knowledge item to find suggestions for'),
+        item_id: z.string().min(1).max(50).describe('ID of the knowledge item to find suggestions for'),
         limit: z.number().min(1).max(20).optional().default(5).describe('Max suggestions'),
     }, withGracefulDegradation('knowledge', adapter, async (params) => {
         try {

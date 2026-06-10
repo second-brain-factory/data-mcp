@@ -12,9 +12,9 @@ export function registerLinkCreate(server, adapter) {
         'Links express how knowledge items relate: supports, contradicts, derived_from, etc. ' +
         'Deduplicates by (source, target, relation_type).', {
         source_type: z.enum(ENTITY_TYPES).describe('Type of the source entity'),
-        source_id: z.string().uuid().describe('UUID of the source entity'),
+        source_id: z.string().min(1).max(50).describe('ID of the source entity (UUID on Supabase, 15-char native ID on PocketBase)'),
         target_type: z.enum(ENTITY_TYPES).describe('Type of the target entity'),
-        target_id: z.string().uuid().describe('UUID of the target entity'),
+        target_id: z.string().min(1).max(50).describe('ID of the target entity (UUID on Supabase, 15-char native ID on PocketBase)'),
         relation_type: z.enum(RELATION_TYPES).describe('Type of relationship'),
         confidence: z.number().min(0).max(1).optional().default(0.8).describe('Confidence in this relationship (0-1)'),
         notes: z.string().max(500).optional().describe('Optional context for why this link exists'),

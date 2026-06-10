@@ -9,7 +9,7 @@ const ENTITY_TYPES = ['knowledge', 'decision', 'session', 'blog_post', 'prospect
 export function registerLinkRelated(server, adapter) {
     server.tool('link_related', 'Get all links for an entity. Shows outgoing and incoming relationships with resolved titles.', {
         entity_type: z.enum(ENTITY_TYPES).describe('Type of the entity'),
-        entity_id: z.string().uuid().describe('UUID of the entity'),
+        entity_id: z.string().min(1).max(50).describe('ID of the entity (UUID on Supabase, 15-char native ID on PocketBase)'),
         direction: z.enum(['both', 'outgoing', 'incoming']).optional().default('both').describe('Filter direction'),
         relation_type: z.enum(['supports', 'contradicts', 'derived_from', 'example_of', 'supersedes', 'part_of', 'prerequisite'])
             .optional().describe('Filter by relation type'),

@@ -29,8 +29,8 @@ const SERVER_INSTRUCTIONS = `You are the user's AI Second Brain data layer. This
 - Use setup_status to check database readiness`;
 export function createServer(adapter) {
     const server = new McpServer({
-        name: '@second-brain/data-mcp',
-        version: '0.1.0',
+        name: '@iwo-szapar/data-mcp',
+        version: '0.3.3',
     }, {
         instructions: SERVER_INSTRUCTIONS,
     });

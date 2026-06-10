@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 export function registerLinkDelete(server, adapter) {
     server.tool('link_delete', 'Delete a knowledge link by its ID.', {
-        link_id: z.string().uuid().describe('UUID of the link to delete'),
+        link_id: z.string().min(1).max(50).describe('ID of the link to delete'),
     }, withGracefulDegradation('knowledge_links', adapter, async (params) => {
         try {
             try {

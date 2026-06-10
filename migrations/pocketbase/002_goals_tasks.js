@@ -1,21 +1,23 @@
 /**
  * PocketBase Migration 002: Goals and tasks
+ * PocketBase v0.23+ field format.
  */
 
 /// <reference path="../pb_data/types.d.ts" />
 
 migrate((app) => {
-  // goals collection
   const goals = new Collection({
     name: 'goals',
     type: 'base',
-    schema: [
-      { name: 'title', type: 'text', required: true, options: { maxSize: 500 } },
-      { name: 'description', type: 'editor', options: { maxSize: 5000 } },
-      { name: 'timeframe', type: 'select', required: true, options: { values: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] } },
-      { name: 'status', type: 'select', required: true, options: { values: ['active', 'completed', 'paused', 'abandoned'] } },
+    fields: [
+      { name: 'title', type: 'text', required: true, max: 500 },
+      { name: 'description', type: 'editor', maxSize: 5000 },
+      { name: 'timeframe', type: 'select', required: true, maxSelect: 1, values: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'] },
+      { name: 'status', type: 'select', required: true, maxSelect: 1, values: ['active', 'completed', 'paused', 'abandoned'] },
       { name: 'key_results', type: 'json' },
       { name: 'tags', type: 'json' },
+      { name: 'created', type: 'autodate', onCreate: true },
+      { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
     ],
     indexes: [
       'CREATE INDEX idx_goals_status ON goals (status)',
@@ -24,18 +26,19 @@ migrate((app) => {
   });
   app.save(goals);
 
-  // tasks collection
   const tasks = new Collection({
     name: 'tasks',
     type: 'base',
-    schema: [
-      { name: 'title', type: 'text', required: true, options: { maxSize: 500 } },
-      { name: 'description', type: 'editor', options: { maxSize: 5000 } },
-      { name: 'status', type: 'select', required: true, options: { values: ['todo', 'in_progress', 'done', 'cancelled'] } },
-      { name: 'priority', type: 'select', required: true, options: { values: ['low', 'medium', 'high', 'urgent'] } },
+    fields: [
+      { name: 'title', type: 'text', required: true, max: 500 },
+      { name: 'description', type: 'editor', maxSize: 5000 },
+      { name: 'status', type: 'select', required: true, maxSelect: 1, values: ['todo', 'in_progress', 'done', 'cancelled'] },
+      { name: 'priority', type: 'select', required: true, maxSelect: 1, values: ['low', 'medium', 'high', 'urgent'] },
       { name: 'due_date', type: 'date' },
       { name: 'tags', type: 'json' },
-      { name: 'goal_id', type: 'text', options: { maxSize: 100 } },
+      { name: 'goal_id', type: 'text', max: 100 },
+      { name: 'created', type: 'autodate', onCreate: true },
+      { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
     ],
     indexes: [
       'CREATE INDEX idx_tasks_status ON tasks (status)',
@@ -44,6 +47,6 @@ migrate((app) => {
   });
   app.save(tasks);
 }, (app) => {
-  app.delete(app.findCollectionByNameOrId('tasks'));
-  app.delete(app.findCollectionByNameOrId('goals'));
+  const t = app.findCollectionByNameOrId('tasks'); if (t) app.delete(t);
+  const g = app.findCollectionByNameOrId('goals'); if (g) app.delete(g);
 });

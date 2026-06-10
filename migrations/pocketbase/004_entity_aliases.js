@@ -1,17 +1,19 @@
 /**
  * PocketBase Migration 004: Entity aliases + settings
+ * PocketBase v0.23+ field format.
  */
 
 /// <reference path="../pb_data/types.d.ts" />
 
 migrate((app) => {
-  // entity_aliases collection
   const aliases = new Collection({
     name: 'entity_aliases',
     type: 'base',
-    schema: [
-      { name: 'canonical', type: 'text', required: true, options: { maxSize: 100 } },
-      { name: 'alias', type: 'text', required: true, options: { maxSize: 200 } },
+    fields: [
+      { name: 'canonical', type: 'text', required: true, max: 100 },
+      { name: 'alias', type: 'text', required: true, max: 200 },
+      { name: 'created', type: 'autodate', onCreate: true },
+      { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
     ],
     indexes: [
       'CREATE UNIQUE INDEX idx_entity_aliases_unique ON entity_aliases (canonical, alias)',
@@ -21,13 +23,14 @@ migrate((app) => {
   });
   app.save(aliases);
 
-  // settings collection
   const settings = new Collection({
     name: 'settings',
     type: 'base',
-    schema: [
-      { name: 'key', type: 'text', required: true, options: { maxSize: 100 } },
+    fields: [
+      { name: 'key', type: 'text', required: true, max: 100 },
       { name: 'value', type: 'editor' },
+      { name: 'created', type: 'autodate', onCreate: true },
+      { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
     ],
     indexes: [
       'CREATE UNIQUE INDEX idx_settings_key ON settings (key)',
@@ -35,6 +38,6 @@ migrate((app) => {
   });
   app.save(settings);
 }, (app) => {
-  app.delete(app.findCollectionByNameOrId('settings'));
-  app.delete(app.findCollectionByNameOrId('entity_aliases'));
+  const s = app.findCollectionByNameOrId('settings'); if (s) app.delete(s);
+  const a = app.findCollectionByNameOrId('entity_aliases'); if (a) app.delete(a);
 });

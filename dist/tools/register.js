@@ -28,9 +28,10 @@ import { registerLinkCreate } from './memory/link-create.js';
 import { registerLinkDelete } from './memory/link-delete.js';
 import { registerLinkRelated } from './memory/link-related.js';
 import { registerLinkSuggest } from './memory/link-suggest.js';
-// Setup tools (3)
+// Setup tools (4)
 import { registerSetupStatus } from './setup/setup-status.js';
 import { registerSetupMigrate } from './setup/setup-migrate.js';
+import { registerSetupBootstrap } from './setup/setup-bootstrap.js';
 import { registerSetupSeed } from './setup/setup-seed.js';
 // Business tools (11)
 import { registerProspectCreate } from './business/prospect-create.js';
@@ -75,6 +76,7 @@ export function registerAllTools(server, adapter) {
     // Setup tools
     registerSetupStatus(server, adapter);
     registerSetupMigrate(server, adapter);
+    registerSetupBootstrap(server, adapter);
     registerSetupSeed(server, adapter);
     // Business tools
     registerProspectCreate(server, adapter);
