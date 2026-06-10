@@ -25,3 +25,5 @@ extra:tools/memory/link-suggest.js.map
 extra:tools/setup/setup-bootstrap.d.ts
 extra:tools/setup/setup-bootstrap.d.ts.map
 extra:tools/setup/setup-bootstrap.js.map
+delta:server.js
+delta:server.d.ts

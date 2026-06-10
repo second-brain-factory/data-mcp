@@ -3,9 +3,21 @@
  *
  * Creates a configured McpServer with all tools registered.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DataAdapter } from './adapter/types.js';
 import { registerAllTools } from './tools/register.js';
+const PACKAGE_VERSION: string = (() => {
+    try {
+        const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+        return JSON.parse(readFileSync(pkgPath, 'utf8')).version ?? '0.0.0';
+    }
+    catch {
+        return '0.0.0';
+    }
+})();
 const SERVER_INSTRUCTIONS = `You are the user's AI Second Brain data layer. This MCP server provides tools to store, search, and manage knowledge, decisions, goals, tasks, contacts, and business data.
 
 ## Core Capabilities
@@ -31,7 +43,7 @@ const SERVER_INSTRUCTIONS = `You are the user's AI Second Brain data layer. This
 export function createServer(adapter: DataAdapter): McpServer {
     const server = new McpServer({
         name: '@second-brain/data-mcp',
-        version: '0.1.0',
+        version: PACKAGE_VERSION,
     }, {
         instructions: SERVER_INSTRUCTIONS,
     });

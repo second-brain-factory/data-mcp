@@ -12,6 +12,8 @@
 #   ALLOW-B  — Class B: canon file is hand-authored/stale (never compiler
 #              output). Listed in scripts/verify-dist-allowlist.txt and
 #              verified semantically (see docs/verify-dist-allowlist.md)
+#   DELTA    — approved 0.7.0 change (version fixes per issue-1219 HOLD
+#              scope). Listed with "delta:" prefix in the allowlist.
 #   FATAL    — any other code diff
 #
 # Sourcemaps (.js.map / .d.ts.map) diffs are WARN only.
@@ -56,6 +58,9 @@ while IFS= read -r f; do
       *)
         if newline_only_diff "$f" "$SCRATCH/$rel"; then
           classa=$((classa+1))
+        elif in_allowlist "delta:$rel"; then
+          echo "DELTA  (approved 0.7.0 change): $rel"
+          allowb=$((allowb+1))
         elif in_allowlist "$rel"; then
           echo "ALLOW-B (hand-authored canon): $rel"
           allowb=$((allowb+1))

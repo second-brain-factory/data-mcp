@@ -1,6 +1,6 @@
 {
   "name": "@iwo-szapar/data-mcp",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Unified data MCP server for Second Brain — PocketBase and Supabase adapters. 40 tools: knowledge, sessions, goals, tasks, contacts, CRM, blog, email, content calendar.",
   "author": "Iwo Szapar <iwo.szapar@gmail.com> (https://iwoszapar.com)",
   "homepage": "https://iwoszapar.com/second-brain-ai",
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://iwoszapar.com/second-brain-ai"
+    "url": "git+https://github.com/second-brain-factory/data-mcp.git"
   },
   "type": "module",
   "bin": {
@@ -59,8 +59,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.1",
-    "tsx": "^4.19.4"
+    "vitest": "^3.1.1"
   }
 }
