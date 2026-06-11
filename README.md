@@ -34,7 +34,7 @@ Claude Code / Claude Desktop config:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.7.4"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.8.0"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/path/to/your/memory"
@@ -46,7 +46,7 @@ Claude Code / Claude Desktop config:
 
 Config rules that prevent silent version drift:
 
-- **Pin the version in `args`** (`@iwo-szapar/data-mcp@0.7.4`, not bare
+- **Pin the version in `args`** (`@iwo-szapar/data-mcp@0.8.0`, not bare
   `@iwo-szapar/data-mcp`). If the directory you launch Claude from has the
   package anywhere in its `node_modules` tree (e.g. your project depends on
   an older data-mcp), an unpinned `npx` resolves that local copy instead of
