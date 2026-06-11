@@ -32,10 +32,17 @@ jobs:
         run: bash scripts/verify-dist.sh
       - name: Build
         run: npm run build
+      - name: Unit tests (vitest)
+        run: npm test
       - name: Smoke test
         run: node scripts/smoke-test.mjs
       - name: Team E2E
         run: node scripts/team-e2e.mjs
+      - name: Team E2E (supabase — skips without secrets)
+        env:
+          SB_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          SB_SUPABASE_KEY: ${{ secrets.E2E_SUPABASE_KEY }}
+        run: node scripts/team-e2e-supabase.mjs
       - name: Assert tag matches package.json version
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
