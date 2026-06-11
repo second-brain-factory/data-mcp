@@ -85,7 +85,12 @@ async function call(client, name, args) {
 }
 
 async function cleanup() {
-  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+  // realtime transport stub: supabase-js >= 2.108 throws at createClient() on
+  // Node 20 without native WebSocket unless a transport is supplied. We never
+  // use realtime here.
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    realtime: { transport: class { close() {} } },
+  });
   for (const table of SCOPED_TABLES) {
     try {
       await sb.from(table).delete().in('owner_id', [ALICE, BOB, SHARED]);

@@ -11,11 +11,30 @@ import { AdapterError } from '../errors/adapter-error.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataAdapter, Filter, FilterClause, ListResult, SortClause, PageOptions } from './types.js';
 
+/** No-op WebSocket stand-in: satisfies realtime-js's constructor check without ws. */
+class InertWebSocket {
+    onopen: (() => void) | null = null;
+    onclose: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    onmessage: (() => void) | null = null;
+    readyState = 3; // CLOSED
+    close(): void { }
+    send(): void { }
+    addEventListener(): void { }
+    removeEventListener(): void { }
+}
+
 export class SupabaseAdapter implements DataAdapter {
     readonly backend: "supabase" = 'supabase';
     private client: SupabaseClient;
     constructor(url: string, key: string) {
-        this.client = createClient(url, key);
+        // data-mcp never uses Supabase realtime. supabase-js >= 2.108 throws at
+        // createClient() on Node 20 ("Node.js 20 detected without native
+        // WebSocket support") unless a realtime transport is provided. Pass an
+        // inert stub so the server boots on every Node >= 20 (our engines floor).
+        this.client = createClient(url, key, {
+            realtime: { transport: InertWebSocket as unknown as undefined },
+        });
     }
     async create<T extends Record<string, unknown>>(collection: string, data: Record<string, unknown>): Promise<T> {
         const { data: result, error } = await this.client

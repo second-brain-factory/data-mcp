@@ -7,11 +7,29 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { AdapterError } from '../errors/adapter-error.js';
+/** No-op WebSocket stand-in: satisfies realtime-js's constructor check without ws. */
+class InertWebSocket {
+    onopen = null;
+    onclose = null;
+    onerror = null;
+    onmessage = null;
+    readyState = 3; // CLOSED
+    close() { }
+    send() { }
+    addEventListener() { }
+    removeEventListener() { }
+}
 export class SupabaseAdapter {
     backend = 'supabase';
     client;
     constructor(url, key) {
-        this.client = createClient(url, key);
+        // data-mcp never uses Supabase realtime. supabase-js >= 2.108 throws at
+        // createClient() on Node 20 ("Node.js 20 detected without native
+        // WebSocket support") unless a realtime transport is provided. Pass an
+        // inert stub so the server boots on every Node >= 20 (our engines floor).
+        this.client = createClient(url, key, {
+            realtime: { transport: InertWebSocket },
+        });
     }
     async create(collection, data) {
         const { data: result, error } = await this.client
