@@ -2,12 +2,29 @@
 
 How to run one shared Second Brain for a small team (example: a team of 3 —
 Alice, Bob, and Carol) with `@iwo-szapar/data-mcp`. Covers both supported
-team backends: **markdown** (shared git repo) and **Supabase** (shared
-Postgres project).
+team backends: **Supabase** (shared Postgres project — recommended) and
+**markdown** (shared git repo — lightweight option).
 
-> **Read the trust model first** — see [Security model](#security-model-trust-based-isolation).
-> Owner scoping is convenience-grade isolation for teams that already trust
-> each other, not a security boundary.
+## Choose your backend
+
+The MCP enforces private/shared scoping identically on both backends. What
+differs is **where the data physically lives** — and that decides how much
+the "private" scope actually protects:
+
+| | **Supabase** (recommended for teams) | **Markdown** (lightweight) |
+|---|---|---|
+| Private records stored | DB rows in the cloud — never on teammates' disks | cleartext `.md` files **in every member's clone** |
+| Private from teammates' AI assistants | **Yes, by default** — there is no local file to read; the MCP is the only practical door | **No** — a teammate's assistant has filesystem access to the clone and will read your private files when a question touches them |
+| Deliberate bypass possible | yes — shared service role key can query any row | yes — open the file |
+| Infrastructure | a free Supabase project | none (a git repo) |
+| Sync | live, concurrent | git pull/push ritual |
+| Best for | teams with any privacy expectations between members | solo multi-machine use; teams treating ALL memory as effectively shared |
+
+**Rule of thumb:** if "private" should mean *hidden from teammates'
+assistants by default*, use Supabase. If the team treats the whole brain as
+shared and private scope is just personal organization, markdown is fine.
+Neither backend protects against a determined teammate — see the
+[security model](#security-model-trust-based-isolation).
 
 ## How team mode works
 
@@ -32,9 +49,64 @@ sessions, goals, tasks, contacts, knowledge_links):
 - Unscoped collections (settings, prospects, blog_posts, queues, ...) are
   team-global: everyone sees everything.
 
-## Option 1 — Markdown backend (shared git repo)
+## Option 1 — Supabase backend (shared project, recommended)
 
-Best for: small teams already working in git, zero infrastructure.
+Best for: teams that want concurrent live access, no git sync ritual, and
+private records that never land on teammates' disks.
+
+### 1. Create the Supabase project
+
+One member creates a project at supabase.com and applies the schema:
+
+- Ask the assistant to call `setup_bootstrap` — it returns a paste-ready
+  SQL block. Paste into the Supabase SQL editor and run.
+- Or apply `migrations/supabase/*.sql` from this package in numeric order.
+  `009_align_to_production.sql` is the one that adds the `owner_id` column
+  (NOT NULL, default `'default'`) to every scoped table — team mode does not
+  work without it.
+- Verify with `setup_migrate`: it must report `needs_migration: 0`. On
+  Supabase, `setup_migrate` **reports only** — it never creates tables
+  (real DDL auto-apply is not shipped).
+
+### 2. Each member configures
+
+Shared URL + key, unique owner id — **only `MEMORYOS_OWNER_ID` differs**:
+
+```json
+{
+  "mcpServers": {
+    "second-brain-data": {
+      "command": "npx",
+      "args": ["-y", "@iwo-szapar/data-mcp@0.7.4"],
+      "env": {
+        "SB_BACKEND": "supabase",
+        "SB_SUPABASE_URL": "https://yourproject.supabase.co",
+        "SB_SUPABASE_KEY": "<service-role-key>",
+        "MEMORYOS_OWNER_ID": "alice",
+        "MEMORYOS_SHARED_OWNER_ID": "team"
+      }
+    }
+  }
+}
+```
+
+Bob uses `"MEMORYOS_OWNER_ID": "bob"`, Carol `"carol"`. Everyone keeps
+`MEMORYOS_SHARED_OWNER_ID: "team"`. Pin the package version in `args` —
+with a bare `@iwo-szapar/data-mcp`, npx resolves a locally installed copy
+if the launch directory's `node_modules` tree contains one, and members can
+end up silently running different versions against the same backend.
+
+Note: every member holds the **service role key**, which bypasses Postgres
+RLS entirely. The MCP enforces scoping for all normal use; a member who
+deliberately queries the database directly sees everything. See the
+security model below.
+
+## Option 2 — Markdown backend (shared git repo, lightweight)
+
+Best for: zero infrastructure, solo multi-machine use, or teams that treat
+all memory as effectively shared. **Private scope on this backend organizes
+memory; it does not hide it from teammates' assistants** — every member's
+clone contains everyone's records as cleartext files.
 
 ### 1. Create the shared memory repo
 
@@ -55,7 +127,7 @@ Claude Desktop config — **only `MEMORYOS_OWNER_ID` differs**:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.7.3"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.7.4"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/Users/alice/team-memory",
@@ -103,49 +175,6 @@ The same applies to a single member with a laptop + desktop: treat the
 memory repo like source code. Pull, work, push. There is no daemon merging
 writes for you.
 
-## Option 2 — Supabase backend (shared project)
-
-Best for: teams that want concurrent live access without a git sync ritual.
-
-### 1. Create the Supabase project
-
-One member creates a project at supabase.com and applies the schema:
-
-- Ask the assistant to call `setup_bootstrap` — it returns a paste-ready
-  SQL block. Paste into the Supabase SQL editor and run.
-- Or apply `migrations/supabase/*.sql` from this package in numeric order.
-  `009_align_to_production.sql` is the one that adds the `owner_id` column
-  (NOT NULL, default `'default'`) to every scoped table — team mode does not
-  work without it.
-- Verify with `setup_migrate`: it must report `needs_migration: 0`. On
-  Supabase, `setup_migrate` **reports only** — it never creates tables
-  (real DDL auto-apply is not shipped).
-
-### 2. Each member configures
-
-Same pattern — shared URL + key, unique owner id:
-
-```json
-{
-  "mcpServers": {
-    "second-brain-data": {
-      "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.7.3"],
-      "env": {
-        "SB_BACKEND": "supabase",
-        "SB_SUPABASE_URL": "https://yourproject.supabase.co",
-        "SB_SUPABASE_KEY": "<service-role-key>",
-        "MEMORYOS_OWNER_ID": "alice",
-        "MEMORYOS_SHARED_OWNER_ID": "team"
-      }
-    }
-  }
-}
-```
-
-Note: every member holds the **service role key**, which bypasses Postgres
-RLS entirely. See the security model below.
-
 ## Verification ritual (run once after setup)
 
 With any two members configured (say Alice and Bob), verify the contract by
@@ -171,30 +200,36 @@ SB_SUPABASE_URL=... SB_SUPABASE_KEY=... npm run test:e2e:supabase
 
 ## Security model (trust-based isolation)
 
-Owner scoping is **trust-based, not cryptographic**:
+Owner scoping is **trust-based, not cryptographic**. The MCP enforces the
+private/shared rules correctly on both backends (verified by the e2e suites
+and a live isolation test, `scripts/mvp-isolation-supabase.mjs`). What
+varies is which *other* doors to the data exist:
 
-- `MEMORYOS_OWNER_ID` is just an env var. Any member can edit their own
-  config to another member's owner id and read that member's private scope.
-- On markdown, private records are plain cleartext files in a repo every
-  member can read. This is not a theoretical "could": **a teammate's AI
-  assistant has filesystem access to the repo and WILL read and quote your
-  private records the moment a question touches them** — no deliberate
+- **On Supabase, the MCP is the only practical door.** Private records
+  never sit on teammates' disks, so no assistant stumbles into them by
+  accident — "private" holds by default. The residual hole is deliberate:
+  every member holds the service role key and can query any row directly,
+  bypassing the proxy.
+- **On markdown, the filesystem is a second, wide-open door.** Private
+  records are plain cleartext files in a repo every member clones. A
+  teammate's AI assistant has filesystem access and will read and quote
+  your private records the moment a question touches them — no deliberate
   bypass, no malice, just an innocent question like "what do we know about
   X?". On markdown, the private scope *organizes* memory; it does not keep
   secrets.
-- Soft-deleted records are moved to `_archive/` inside the markdown root —
-  they are not destroyed. `setup_migrate` writes a `.gitignore` covering
+- On either backend, `MEMORYOS_OWNER_ID` is just an env var — any member
+  can edit their own config to another member's owner id and read that
+  member's private scope through the MCP itself.
+- Markdown soft-deletes move records to `_archive/` inside the root — they
+  are not destroyed. `setup_migrate` writes a `.gitignore` covering
   `_archive/` (since 0.7.4) so a reflexive `git add -A && git push` cannot
   publish "deleted" private records. Anything pushed before that guard
   existed stays in git history until removed with `git filter-repo`.
-- On Supabase, private records never sit on teammates' disks, which is
-  materially better. The residual hole: every member holds the service role
-  key, which can query any row directly, bypassing the proxy.
 
-Use team mode to keep private and shared memory *organized and out of each
-other's way* — not to protect secrets from your own teammates. If a record
-must never be seen by a teammate (or their AI assistant), keep it out of
-the team brain entirely, or use Supabase and accept the shared-key caveat.
+**Bottom line:** Supabase gives you private-by-default against accidental
+exposure; markdown does not. Neither protects against a teammate who
+deliberately goes around the MCP. If a record must never be seen by any
+teammate under any circumstances, keep it out of the team brain entirely.
 
 ## Known limitations
 

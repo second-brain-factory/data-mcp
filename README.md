@@ -34,7 +34,7 @@ Claude Code / Claude Desktop config:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.7.3"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.7.4"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/path/to/your/memory"
@@ -46,7 +46,7 @@ Claude Code / Claude Desktop config:
 
 Config rules that prevent silent version drift:
 
-- **Pin the version in `args`** (`@iwo-szapar/data-mcp@0.7.3`, not bare
+- **Pin the version in `args`** (`@iwo-szapar/data-mcp@0.7.4`, not bare
   `@iwo-szapar/data-mcp`). If the directory you launch Claude from has the
   package anywhere in its `node_modules` tree (e.g. your project depends on
   an older data-mcp), an unpinned `npx` resolves that local copy instead of
@@ -107,15 +107,16 @@ walkthrough for both backends, `.mcp.json` examples, verification ritual.
 
 **Caveats:**
 
-- **Trust-based isolation, not a security boundary.** `MEMORYOS_OWNER_ID`
-  is an env var any member can change, and every member holds backend
-  credentials that can read all rows/files directly. On markdown, private
-  records are cleartext files on every member's disk — a teammate's AI
-  assistant **will** read and quote them when an innocent question touches
-  them. Use scoping to keep private and shared memory organized — not to
-  hide secrets from teammates. Secrets belong outside the team brain (or
-  on Supabase, which keeps private rows off teammates' disks but still
-  shares the service key).
+- **Backend choice decides what "private" means.** The MCP enforces
+  private/shared scoping identically everywhere, but on **Supabase**
+  private records live only in the cloud — hidden from teammates'
+  assistants by default (residual hole: the shared service role key can
+  query rows directly, a deliberate bypass). On **markdown**, every
+  member's clone contains everyone's records as cleartext files, and a
+  teammate's AI assistant **will** read them when a question touches them —
+  there, private scope organizes memory, it does not keep secrets. Use
+  Supabase for teams with privacy expectations; keep true secrets out of
+  the team brain on either backend.
 - **PocketBase backend does not support owner scoping.** Owner routing is
   silently skipped on PocketBase — `MEMORYOS_OWNER_ID` has no effect there.
   Use markdown or Supabase for team mode.
