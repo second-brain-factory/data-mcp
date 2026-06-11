@@ -184,6 +184,43 @@ export class MarkdownAdapter {
             throw new AdapterError('io', `failed to create collection ${collection}: ${err?.message || err}`);
         }
     }
+    /**
+     * Write a .gitignore containing `_archive/` into the markdown root so
+     * soft-deleted records (which may include private data) are never pushed
+     * to a shared team repo. Idempotent: appends the rule only if no existing
+     * .gitignore line already covers `_archive`.
+     */
+    async ensureWorkspaceProtections() {
+        const gitignorePath = join(this.root, '.gitignore');
+        const RULE = '_archive/';
+        try {
+            let existing = '';
+            try {
+                existing = await fs.readFile(gitignorePath, 'utf8');
+            }
+            catch (err) {
+                if (!err || err.code !== 'ENOENT')
+                    throw err;
+            }
+            const covered = existing
+                .split('\n')
+                .map((line) => line.trim())
+                .some((line) => line === '_archive/' || line === '_archive' || line === '/_archive/' || line === '/_archive');
+            if (covered)
+                return [];
+            await fs.mkdir(this.root, { recursive: true });
+            const header = '# Soft-deleted records (may contain private data) — never commit.\n';
+            const block = `${header}${RULE}\n`;
+            const next = existing.length === 0
+                ? block
+                : `${existing}${existing.endsWith('\n') ? '' : '\n'}${block}`;
+            await fs.writeFile(gitignorePath, next, 'utf8');
+            return ['.gitignore: _archive/'];
+        }
+        catch (err) {
+            throw new AdapterError('io', `failed to write workspace .gitignore: ${err?.message || err}`);
+        }
+    }
     async listCollections() {
         try {
             const entries = await fs.readdir(this.root, { withFileTypes: true });

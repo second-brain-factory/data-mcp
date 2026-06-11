@@ -15,12 +15,17 @@ export class OwnerScopeProxy {
     ownerScopeEnabled = true;
     /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
     createCollection;
+    /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
+    ensureWorkspaceProtections;
     constructor(inner, config) {
         this.inner = inner;
         this.ownerId = config.ownerId;
         this.sharedOwnerId = config.sharedOwnerId;
         if (inner.createCollection) {
             this.createCollection = (collection) => inner.createCollection(collection);
+        }
+        if (inner.ensureWorkspaceProtections) {
+            this.ensureWorkspaceProtections = () => inner.ensureWorkspaceProtections();
         }
     }
     get backend() {

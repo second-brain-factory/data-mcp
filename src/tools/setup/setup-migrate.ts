@@ -67,6 +67,19 @@ export function registerSetupMigrate(server: McpServer, adapter: DataAdapter): v
                     needsMigration.push({ name: schema.name, instruction: 'Failed to check — may need migration' });
                 }
             }
+            // Workspace protections (markdown only): .gitignore with _archive/
+            // so soft-deleted records — which may include private data — are
+            // never committed to a shared team repo.
+            let protections: string[] = [];
+            if (adapter.ensureWorkspaceProtections) {
+                try {
+                    protections = await adapter.ensureWorkspaceProtections();
+                }
+                catch (err) {
+                    const msg = err instanceof Error ? err.message : 'Unknown error';
+                    console.error('[setup_migrate] Error writing workspace protections:', msg);
+                }
+            }
             return makeToolResponse({
                 backend: adapter.backend,
                 migrations_path: migrationsPath,
@@ -77,6 +90,7 @@ export function registerSetupMigrate(server: McpServer, adapter: DataAdapter): v
                     existing: skipped,
                     created: created.length > 0 ? created : undefined,
                     needs_migration: needsMigration.length > 0 ? needsMigration : undefined,
+                    protections_created: protections.length > 0 ? protections : undefined,
                 },
                 message: adapter.createCollection
                     ? `Migration complete. ${skipped.length} existing, ${created.length} created. Your Second Brain is ready to use.`

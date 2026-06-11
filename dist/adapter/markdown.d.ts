@@ -43,6 +43,13 @@ export declare class MarkdownAdapter implements DataAdapter {
     count(collection: string, filter?: Filter): Promise<number>;
     collectionExists(collection: string): Promise<boolean>;
     createCollection(collection: string): Promise<void>;
+    /**
+     * Write a .gitignore containing `_archive/` into the markdown root so
+     * soft-deleted records (which may include private data) are never pushed
+     * to a shared team repo. Idempotent: appends the rule only if no existing
+     * .gitignore line already covers `_archive`.
+     */
+    ensureWorkspaceProtections(): Promise<string[]>;
     listCollections(): Promise<string[]>;
 }
 //# sourceMappingURL=markdown.d.ts.map

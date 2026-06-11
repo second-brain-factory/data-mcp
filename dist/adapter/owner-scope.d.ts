@@ -10,6 +10,8 @@ export declare class OwnerScopeProxy implements DataAdapter {
     readonly ownerScopeEnabled = true;
     /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
     readonly createCollection?: (collection: string) => Promise<void>;
+    /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
+    readonly ensureWorkspaceProtections?: () => Promise<string[]>;
     constructor(inner: DataAdapter, config: OwnerRoutingConfig);
     get backend(): 'pocketbase' | 'supabase' | 'markdown';
     create<T extends Record<string, unknown>>(collection: string, data: Record<string, unknown>): Promise<T>;

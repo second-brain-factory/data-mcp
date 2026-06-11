@@ -69,6 +69,13 @@ export interface DataAdapter {
      * falls back to report-only behavior.
      */
     createCollection?(collection: string): Promise<void>;
+    /**
+     * Ensure workspace-level safety files exist (optional capability).
+     * Markdown backend writes a .gitignore with `_archive/` into the root so
+     * soft-deleted records are never committed to a shared team repo.
+     * Returns the list of protections created (empty when already in place).
+     */
+    ensureWorkspaceProtections?(): Promise<string[]>;
     /** List all collection names */
     listCollections(): Promise<string[]>;
     readonly ownerScopeEnabled?: boolean;

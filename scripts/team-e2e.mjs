@@ -11,7 +11,8 @@
  * Verifies:
  *  0. setup_migrate bootstraps a fresh markdown root (C2 regression guard,
  *     issue-1260: writes must work immediately after setup_migrate with no
- *     external mkdir)
+ *     external mkdir) and writes a .gitignore covering _archive/ so
+ *     soft-deleted records never reach a shared team repo (0.7.4)
  *  1. Server boots from local build, version matches package.json, 41 tools
  *  2. Private knowledge written by alice is invisible to bob
  *  3. Shared knowledge written by alice is visible to bob
@@ -84,6 +85,14 @@ check('setup_migrate leaves nothing needing migration', (migrate.needs_migration
 
 const migrate2 = await call(alice, 'setup_migrate', {});
 check('setup_migrate is idempotent (second run creates nothing)', (migrate2.created ?? -1) === 0 && (migrate2.needs_migration ?? -1) === 0, JSON.stringify(migrate2).slice(0, 300));
+
+// _archive/ gitignore guard (0.7.4): soft-deleted records must never reach a
+// shared team repo via `git add -A`. setup_migrate must write the rule on the
+// first run and not duplicate it on re-runs.
+const gitignore = readFileSync(join(ROOT, '.gitignore'), 'utf8');
+check('setup_migrate writes .gitignore covering _archive/', gitignore.split('\n').some((l) => l.trim() === '_archive/'), JSON.stringify(gitignore).slice(0, 200));
+check('first setup_migrate reports protections_created', Array.isArray(migrate.details?.protections_created) && migrate.details.protections_created.length > 0, JSON.stringify(migrate.details ?? {}).slice(0, 300));
+check('.gitignore _archive/ rule not duplicated after second run', gitignore.split('\n').filter((l) => l.trim() === '_archive/').length === 1);
 
 // --- 1. Boot + surface ---
 console.log('\n[1] Boot + tool surface');
