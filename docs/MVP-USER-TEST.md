@@ -5,7 +5,7 @@ real user. You play both team members ("iwo" and "ola") in two Claude Code
 sessions. No scripts — everything is typed conversationally, which also
 tests whether Claude maps natural phrasing to the right MCP tools.
 
-**Version under test:** `@iwo-szapar/data-mcp@0.7.4`
+**Version under test:** `@iwo-szapar/data-mcp@0.8.0`
 **Backend:** markdown (shared git repo). The Supabase-backend equivalent of
 the isolation-critical steps is automated: `scripts/mvp-isolation-supabase.mjs`
 (run with `SB_SUPABASE_URL`/`SB_SUPABASE_KEY` set) — it proves 3.2a/3.9 hold
@@ -53,7 +53,7 @@ Create `~/member-iwo/.mcp.json`:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.7.4"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.8.0"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/Users/YOU/member-iwo/memory",
