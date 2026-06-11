@@ -5,6 +5,89 @@ Alice, Bob, and Carol) with `@iwo-szapar/data-mcp`. Covers both supported
 team backends: **Supabase** (shared Postgres project — recommended) and
 **markdown** (shared git repo — lightweight option).
 
+## What this is (plain-language intro)
+
+A **Second Brain** is a long-term memory for your AI assistant. Normally
+each person's assistant remembers things only for them. **Team mode** lets
+a small team plug all of their assistants into **one shared memory**, so
+knowledge captured by one person becomes available to everyone — while each
+person still keeps a private corner that's theirs alone.
+
+Think of it as a shared filing cabinet with two kinds of drawers:
+
+- **Your private drawer.** Everything you save goes here by default. Your
+  teammates' assistants don't see it, and if they ask about it directly,
+  the system answers as if it doesn't exist.
+- **The team drawer.** Anything saved "as shared" lands here, and every
+  member's assistant can read and build on it — decisions, contacts,
+  research, tasks that get handed off between people.
+
+You never operate the filing cabinet directly. Your AI assistant does it
+for you in plain conversation: "remember that we chose vendor X" files a
+shared note; "what do I know about the Q3 plan?" pulls from your private
+drawer plus the team drawer.
+
+### Typical use cases
+
+- **A small consultancy or agency** keeping client knowledge, decisions,
+  and contacts in one place, so any member's assistant can answer "what
+  did we agree with client Y?"
+- **A founding team** logging decisions and context as they go, so the
+  reasoning behind choices survives beyond chat history.
+- **Task handoffs** — Alice creates a shared task, Bob's assistant sees it
+  in his list and marks it done.
+- **One person, multiple computers** — the same mechanism syncs your own
+  memory between machines (markdown backend is enough for this).
+
+### What can be configured
+
+- **Where the memory lives (the backend).** A cloud database (Supabase —
+  recommended for teams) or a folder of plain-text files in a shared git
+  repo (markdown — zero infrastructure, weaker privacy). The comparison
+  table below covers the trade-offs.
+- **Who each member is.** Each member sets a unique ID in their assistant's
+  config; that ID stamps their writes and scopes their reads. Everyone
+  shares one team ID for the shared drawer.
+- **How strongly privacy is enforced (Supabase only).** Default mode
+  trusts members not to go around the assistant. **Hardened mode** gives
+  each member their own access token and makes the database itself refuse
+  to serve other people's private records — even to someone who bypasses
+  the assistant and queries the database directly.
+
+### Limitations to know up front
+
+**For members:**
+
+- Privacy is between *teammates*, not absolute. The admin who runs the
+  backend can always see everything (they hold the master key). If
+  something must never be seen by anyone else under any circumstances,
+  don't put it in the team brain.
+- On the **markdown** backend, "private" only organizes memory — your
+  records sit as readable files on every teammate's computer, and their
+  assistants will quote them when relevant. Choose Supabase if private
+  must mean private.
+- Without hardened mode, anyone can impersonate anyone by editing one line
+  of their own config — the system trusts the ID you claim.
+
+**For admins:**
+
+- Setup is manual: you create the database project, apply the schema by
+  pasting SQL, and (for hardened mode) mint and distribute one token per
+  member. There is no admin UI.
+- Member tokens expire (default: one year) and must be re-minted. Revoking
+  one member means rotating the project secret, which invalidates
+  *everyone's* tokens at once — there is no per-member revocation.
+- All members should pin the same package version, or different members
+  can silently run different versions against the same data.
+- The markdown backend has no live sync — members must follow a git
+  pull/push ritual, and "deleted" records linger in git history.
+- PocketBase (the third storage option for solo use) does **not** support
+  team mode at all.
+
+The rest of this document is the technical runbook: backend choice,
+step-by-step setup for each option, verification, and the full security
+model.
+
 ## Choose your backend
 
 The MCP enforces private/shared scoping identically on both backends. What
