@@ -24,6 +24,7 @@
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:e2e": "node scripts/team-e2e.mjs",
+    "test:e2e:supabase": "node scripts/team-e2e-supabase.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src/"

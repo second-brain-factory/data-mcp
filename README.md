@@ -91,9 +91,26 @@ private memory private:
 - Cross-owner access to another member's private record returns
   RECORD_NOT_FOUND — existence is not leaked.
 
-This contract is enforced in CI by `scripts/team-e2e.mjs` (18 checks: two
-simulated members, private isolation, shared visibility, shared task
-handoff, cross-owner write protection, `brain_stats` scoping).
+**Full setup runbook:** [docs/TEAM-SETUP.md](docs/TEAM-SETUP.md) — team-of-3
+walkthrough for both backends, `.mcp.json` examples, verification ritual.
+
+**Caveats:**
+
+- **Trust-based isolation, not a security boundary.** `MEMORYOS_OWNER_ID`
+  is an env var any member can change, and every member holds backend
+  credentials that can read all rows/files directly. Use scoping to keep
+  private and shared memory organized — not to hide secrets from teammates.
+- **PocketBase backend does not support owner scoping.** Owner routing is
+  silently skipped on PocketBase — `MEMORYOS_OWNER_ID` has no effect there.
+  Use markdown or Supabase for team mode.
+- **Markdown backend has no cross-machine concurrency control.** Sync the
+  shared root with git pull/push discipline (see the runbook).
+
+This contract is enforced in CI by `scripts/team-e2e.mjs` (markdown, 18
+checks) and `scripts/team-e2e-supabase.mjs` (Supabase, same contract;
+runs when `SB_SUPABASE_URL`/`SB_SUPABASE_KEY` are provided, skips
+otherwise): two simulated members, private isolation, shared visibility,
+shared task handoff, cross-owner write protection, `brain_stats` scoping.
 
 Search note: the markdown backend's `textSearch` is exact-substring matching
 on lowercased text (ranked tags > title > body). Multi-word queries match
@@ -122,7 +139,9 @@ contiguous substrings only — prefer single, distinctive words.
 npm ci
 npm run typecheck         # tsc --noEmit
 npm run build             # tsc → dist/
+npm test                  # unit tests (vitest)
 npm run test:e2e          # team E2E against local dist/ (markdown backend)
+npm run test:e2e:supabase # team E2E, Supabase backend (needs SB_SUPABASE_URL/KEY; skips otherwise)
 node scripts/smoke-test.mjs    # stdio boot + 41-tool surface check
 bash scripts/verify-dist.sh    # dist/ byte-comparability gate
 ```

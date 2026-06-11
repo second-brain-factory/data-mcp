@@ -21,7 +21,14 @@ jobs:
         run: bash scripts/verify-dist.sh
       - name: Build
         run: npm run build
+      - name: Unit tests (vitest)
+        run: npm test
       - name: Smoke test (stdio, 41 tools)
         run: node scripts/smoke-test.mjs
       - name: Team E2E (owner scoping, markdown backend, 18 checks)
         run: node scripts/team-e2e.mjs
+      - name: Team E2E (owner scoping, supabase backend — skips without secrets)
+        env:
+          SB_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          SB_SUPABASE_KEY: ${{ secrets.E2E_SUPABASE_KEY }}
+        run: node scripts/team-e2e-supabase.mjs
