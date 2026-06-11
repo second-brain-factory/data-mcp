@@ -1,5 +1,5 @@
 /**
- * Tool registration — imports and calls all 35 register functions.
+ * Tool registration — imports and calls all 39 register functions.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DataAdapter } from '../adapter/types.js';

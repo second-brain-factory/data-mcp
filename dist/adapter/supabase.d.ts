@@ -9,7 +9,7 @@ import type { DataAdapter, Filter, ListResult, SortClause, PageOptions } from '.
 export declare class SupabaseAdapter implements DataAdapter {
     readonly backend: "supabase";
     private client;
-    constructor(url: string, key: string);
+    constructor(url: string, key: string, memberJwt?: string);
     create<T extends Record<string, unknown>>(collection: string, data: Record<string, unknown>): Promise<T>;
     getOne<T extends Record<string, unknown>>(collection: string, id: string): Promise<T>;
     list<T extends Record<string, unknown>>(collection: string, options?: {

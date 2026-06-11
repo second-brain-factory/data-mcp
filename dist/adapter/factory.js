@@ -17,7 +17,7 @@ export function createAdapter(config) {
         adapter = new MarkdownAdapter(config.markdownRoot);
     }
     else {
-        adapter = new SupabaseAdapter(config.supabaseUrl, config.supabaseKey);
+        adapter = new SupabaseAdapter(config.supabaseUrl, config.supabaseKey, config.supabaseMemberJwt);
     }
     const schemaMap = new SchemaMap(config.schemaMap);
     if (!schemaMap.isEmpty) {

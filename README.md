@@ -77,7 +77,9 @@ Layout: `<root>/<collection>/<id>.md`; soft-deletes move files to
 | `SB_BACKEND` | yes | `markdown` \| `supabase` \| `pocketbase` |
 | `SB_MARKDOWN_ROOT` | markdown | path to the memory folder |
 | `SB_SUPABASE_URL` | supabase | project URL |
-| `SB_SUPABASE_KEY` | supabase | service role key |
+| `SB_SUPABASE_KEY` | supabase | service role key (default mode) |
+| `SB_SUPABASE_ANON_KEY` | supabase (hardened) | anon key — pair with `SB_SUPABASE_MEMBER_JWT` |
+| `SB_SUPABASE_MEMBER_JWT` | supabase (hardened) | per-member JWT (mint with `scripts/mint-member-jwt.mjs`); pair takes precedence over `SB_SUPABASE_KEY` |
 | `SB_POCKETBASE_URL` | pocketbase | server URL |
 | `SB_POCKETBASE_ADMIN_EMAIL` | pocketbase | admin email |
 | `SB_POCKETBASE_ADMIN_PASSWORD` | pocketbase | admin password |
@@ -111,7 +113,9 @@ walkthrough for both backends, `.mcp.json` examples, verification ritual.
   private/shared scoping identically everywhere, but on **Supabase**
   private records live only in the cloud — hidden from teammates'
   assistants by default (residual hole: the shared service role key can
-  query rows directly, a deliberate bypass). On **markdown**, every
+  query rows directly, a deliberate bypass — closed by **hardened mode**:
+  per-member JWTs + RLS, where the database itself rejects cross-owner
+  reads; see the runbook). On **markdown**, every
   member's clone contains everyone's records as cleartext files, and a
   teammate's AI assistant **will** read them when a question touches them —
   there, private scope organizes memory, it does not keep secrets. Use
@@ -128,6 +132,8 @@ checks) and `scripts/team-e2e-supabase.mjs` (Supabase, same core contract;
 runs when `SB_SUPABASE_URL`/`SB_SUPABASE_KEY` are provided, skips
 otherwise): two simulated members, private isolation, shared visibility,
 shared task handoff, cross-owner write protection, `brain_stats` scoping.
+Hardened mode has its own suite, `scripts/team-e2e-supabase-hardened.mjs`,
+including direct-PostgREST bypass probes proving the database fails closed.
 
 Search note: `knowledge_recall` first runs the backend's native search with
 the full query (markdown: exact-substring ranked tags > title > body;

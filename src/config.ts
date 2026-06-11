@@ -6,7 +6,12 @@
  * SB_POCKETBASE_ADMIN_EMAIL: PocketBase admin email (required if backend=pocketbase)
  * SB_POCKETBASE_ADMIN_PASSWORD: PocketBase admin password (required if backend=pocketbase)
  * SB_SUPABASE_URL: Supabase project URL (required if backend=supabase)
- * SB_SUPABASE_KEY: Supabase service role key (required if backend=supabase)
+ * SB_SUPABASE_KEY: Supabase service role key (required if backend=supabase
+ *   unless hardened mode below is configured)
+ * SB_SUPABASE_ANON_KEY + SB_SUPABASE_MEMBER_JWT: hardened team mode — anon
+ *   key as apikey, member JWT (scripts/mint-member-jwt.mjs) as Authorization
+ *   bearer. RLS (migration 011) scopes the member at the database level.
+ *   When both are set they take precedence over SB_SUPABASE_KEY.
  * SB_MARKDOWN_ROOT: filesystem path to the memory/ folder (required if backend=markdown)
  * SB_SCHEMA_MAP: JSON string mapping logical names to actual table names (optional)
  * SB_RESEND_API_KEY: Resend API key for email sending (optional)
@@ -27,7 +32,10 @@ export interface PocketBaseConfig {
 export interface SupabaseConfig {
     backend: 'supabase';
     supabaseUrl: string;
+    /** apikey header value: service role key, or anon key in hardened mode */
     supabaseKey: string;
+    /** Hardened mode: member JWT sent as Authorization bearer (RLS-scoped) */
+    supabaseMemberJwt?: string;
     schemaMap: Record<string, string>;
     resendApiKey?: string;
     ownerRouting?: OwnerRoutingConfig;
@@ -73,9 +81,38 @@ export function parseConfig(): Config {
             ownerRouting,
         };
     }
+    return parseSupabaseConfig(schemaMap, resendApiKey, ownerRouting);
+}
+
+/**
+ * Supabase credential resolution. Two modes:
+ *  - service:  SB_SUPABASE_KEY (service role — full access, bypasses RLS)
+ *  - hardened: SB_SUPABASE_ANON_KEY + SB_SUPABASE_MEMBER_JWT (per-member,
+ *              RLS-scoped via migration 011). Takes precedence when both
+ *              env pairs are present. Setting only one of the hardened pair
+ *              is a config error, not a silent fallback.
+ */
+function parseSupabaseConfig(schemaMap: Record<string, string>, resendApiKey: string | undefined, ownerRouting: OwnerRoutingConfig | undefined): SupabaseConfig {
+    const supabaseUrl = requireEnv('SB_SUPABASE_URL');
+    const anonKey = process.env.SB_SUPABASE_ANON_KEY?.trim();
+    const memberJwt = process.env.SB_SUPABASE_MEMBER_JWT?.trim();
+    if (anonKey && memberJwt) {
+        return {
+            backend: 'supabase',
+            supabaseUrl,
+            supabaseKey: anonKey,
+            supabaseMemberJwt: memberJwt,
+            schemaMap,
+            resendApiKey,
+            ownerRouting,
+        };
+    }
+    if (anonKey || memberJwt) {
+        throw new Error('Hardened Supabase mode requires BOTH SB_SUPABASE_ANON_KEY and SB_SUPABASE_MEMBER_JWT (got only one). Remove both to use SB_SUPABASE_KEY instead.');
+    }
     return {
-        backend,
-        supabaseUrl: requireEnv('SB_SUPABASE_URL'),
+        backend: 'supabase',
+        supabaseUrl,
         supabaseKey: requireEnv('SB_SUPABASE_KEY'),
         schemaMap,
         resendApiKey,

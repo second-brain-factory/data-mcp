@@ -22,13 +22,23 @@ class InertWebSocket {
 export class SupabaseAdapter {
     backend = 'supabase';
     client;
-    constructor(url, key) {
+    constructor(url, key, memberJwt) {
         // data-mcp never uses Supabase realtime. supabase-js >= 2.108 throws at
         // createClient() on Node 20 ("Node.js 20 detected without native
         // WebSocket support") unless a realtime transport is provided. Pass an
         // inert stub so the server boots on every Node >= 20 (our engines floor).
+        //
+        // Hardened team mode: `key` is the anon key and `memberJwt` (a JWT
+        // minted by scripts/mint-member-jwt.mjs) rides as the Authorization
+        // bearer — PostgREST switches to the `authenticated` role and RLS
+        // (migration 011) scopes every query to the member's owner_id +
+        // shared_owner_id claims. Without memberJwt, `key` is the service
+        // role key and behavior is unchanged (service role bypasses RLS).
         this.client = createClient(url, key, {
             realtime: { transport: InertWebSocket },
+            ...(memberJwt
+                ? { global: { headers: { Authorization: `Bearer ${memberJwt}` } } }
+                : {}),
         });
     }
     async create(collection, data) {

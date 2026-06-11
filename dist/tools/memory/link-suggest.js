@@ -30,8 +30,10 @@ export function registerLinkSuggest(server, adapter) {
                     filter: [[{ field: 'target_type', op: 'eq', value: 'knowledge' }, { field: 'target_id', op: 'eq', value: params.item_id }]],
                     page: { limit: 100, offset: 0 },
                 });
-                for (const l of out.items) linkedIds.add(l.target_id);
-                for (const l of inc.items) linkedIds.add(l.source_id);
+                for (const l of out.items)
+                    linkedIds.add(l.target_id);
+                for (const l of inc.items)
+                    linkedIds.add(l.source_id);
             }
             catch { /* knowledge_links may not exist */ }
             const searchTerms = extractKeyTerms(sourceItem.title, sourceItem.content);
@@ -74,10 +76,14 @@ function extractKeyTerms(title, content) {
     return [...new Set(words)].slice(0, 5).join(' ');
 }
 function suggestRelationType(source, target) {
-    if (source.type === target.type) return 'supports';
-    if ((source.type === 'lesson' && target.type === 'decision') || (source.type === 'decision' && target.type === 'lesson')) return 'derived_from';
-    if (source.type === 'insight' && target.type === 'pattern') return 'derived_from';
-    if (source.type === 'pattern' && target.type === 'insight') return 'example_of';
+    if (source.type === target.type)
+        return 'supports';
+    if ((source.type === 'lesson' && target.type === 'decision') || (source.type === 'decision' && target.type === 'lesson'))
+        return 'derived_from';
+    if (source.type === 'insight' && target.type === 'pattern')
+        return 'derived_from';
+    if (source.type === 'pattern' && target.type === 'insight')
+        return 'example_of';
     return 'supports';
 }
 //# sourceMappingURL=link-suggest.js.map

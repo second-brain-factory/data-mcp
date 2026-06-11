@@ -15,7 +15,7 @@ the "private" scope actually protects:
 |---|---|---|
 | Private records stored | DB rows in the cloud — never on teammates' disks | cleartext `.md` files **in every member's clone** |
 | Private from teammates' AI assistants | **Yes, by default** — there is no local file to read; the MCP is the only practical door | **No** — a teammate's assistant has filesystem access to the clone and will read your private files when a question touches them |
-| Deliberate bypass possible | yes — shared service role key can query any row | yes — open the file |
+| Deliberate bypass possible | service-key default: yes (shared key reads any row); **hardened mode: no** — per-member JWTs + RLS, the DB fails closed | yes — open the file |
 | Infrastructure | a free Supabase project | none (a git repo) |
 | Sync | live, concurrent | git pull/push ritual |
 | Best for | teams with any privacy expectations between members | solo multi-machine use; teams treating ALL memory as effectively shared |
@@ -23,7 +23,8 @@ the "private" scope actually protects:
 **Rule of thumb:** if "private" should mean *hidden from teammates'
 assistants by default*, use Supabase. If the team treats the whole brain as
 shared and private scope is just personal organization, markdown is fine.
-Neither backend protects against a determined teammate — see the
+For privacy enforced by the database even against deliberate bypass, use
+Supabase **hardened mode** — see the
 [security model](#security-model-trust-based-isolation).
 
 ## How team mode works
@@ -99,7 +100,62 @@ end up silently running different versions against the same backend.
 Note: every member holds the **service role key**, which bypasses Postgres
 RLS entirely. The MCP enforces scoping for all normal use; a member who
 deliberately queries the database directly sees everything. See the
-security model below.
+security model below — or close that hole with hardened mode.
+
+### 3. Hardened mode (optional) — per-member JWTs + RLS
+
+Hardened mode replaces the shared service role key with a **per-member
+JWT** checked by Postgres Row Level Security. A member who goes around the
+MCP and queries the database directly still sees only their own private
+rows plus shared rows — the database itself fails closed.
+
+**Setup (admin, once):**
+
+1. Apply `migrations/supabase/011_rls_owner_isolation.sql` (idempotent —
+   safe to re-run). It enables RLS on all owner-scoped tables with a
+   policy that matches the JWT's `owner_id`/`shared_owner_id` claims.
+2. Get the project **JWT secret** (Dashboard → Settings → API → JWT
+   Settings) and the **anon key**.
+3. Mint one JWT per member:
+
+   ```bash
+   SUPABASE_JWT_SECRET=<secret> node scripts/mint-member-jwt.mjs \
+     --owner-id alice --shared-owner-id team
+   ```
+
+   Tokens default to a 365-day expiry (`--expires-days` to change).
+   Distribute each member their own token only.
+
+**Each member configures** anon key + member JWT instead of the service
+key:
+
+```json
+"env": {
+  "SB_BACKEND": "supabase",
+  "SB_SUPABASE_URL": "https://yourproject.supabase.co",
+  "SB_SUPABASE_ANON_KEY": "<anon-key>",
+  "SB_SUPABASE_MEMBER_JWT": "<alice-jwt>",
+  "MEMORYOS_OWNER_ID": "alice",
+  "MEMORYOS_SHARED_OWNER_ID": "team"
+}
+```
+
+Rules:
+
+- `SB_SUPABASE_ANON_KEY` + `SB_SUPABASE_MEMBER_JWT` must be set **as a
+  pair** — one without the other is a startup error.
+- When the pair is present it takes precedence over `SB_SUPABASE_KEY`;
+  existing service-key configs keep working unchanged (opt-in).
+- The JWT's `owner_id` claim should match `MEMORYOS_OWNER_ID` — the MCP
+  scopes by the env var, the database scopes by the claim; keep them in
+  sync.
+- The admin keeps the service role key for maintenance (it bypasses RLS
+  by design). Rotate the project JWT secret to revoke all member tokens
+  at once.
+
+Verified by `scripts/team-e2e-supabase-hardened.mjs`, which includes
+direct-PostgREST bypass probes: a member's JWT returns zero rows of
+another member's private data even when querying the database directly.
 
 ## Option 2 — Markdown backend (shared git repo, lightweight)
 
@@ -207,9 +263,11 @@ varies is which *other* doors to the data exist:
 
 - **On Supabase, the MCP is the only practical door.** Private records
   never sit on teammates' disks, so no assistant stumbles into them by
-  accident — "private" holds by default. The residual hole is deliberate:
-  every member holds the service role key and can query any row directly,
-  bypassing the proxy.
+  accident — "private" holds by default. With the default shared service
+  role key the residual hole is deliberate: every member can query any row
+  directly, bypassing the proxy. **Hardened mode** (per-member JWTs + RLS,
+  see Option 1 step 3) closes that hole — direct database queries with a
+  member JWT return only that member's private rows plus shared rows.
 - **On markdown, the filesystem is a second, wide-open door.** Private
   records are plain cleartext files in a repo every member clones. A
   teammate's AI assistant has filesystem access and will read and quote
@@ -227,9 +285,12 @@ varies is which *other* doors to the data exist:
   existed stays in git history until removed with `git filter-repo`.
 
 **Bottom line:** Supabase gives you private-by-default against accidental
-exposure; markdown does not. Neither protects against a teammate who
-deliberately goes around the MCP. If a record must never be seen by any
-teammate under any circumstances, keep it out of the team brain entirely.
+exposure; markdown does not. With the default shared service key, neither
+protects against a teammate who deliberately goes around the MCP —
+Supabase hardened mode does, enforced by the database itself. The
+remaining trust boundary on any setup: if a record must never be seen by
+the project admin under any circumstances, keep it out of the team brain
+entirely.
 
 ## Known limitations
 
