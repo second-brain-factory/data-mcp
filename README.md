@@ -34,7 +34,7 @@ Claude Code / Claude Desktop config:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["@iwo-szapar/data-mcp"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.7.3"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/path/to/your/memory"
@@ -43,6 +43,17 @@ Claude Code / Claude Desktop config:
   }
 }
 ```
+
+Config rules that prevent silent version drift:
+
+- **Pin the version in `args`** (`@iwo-szapar/data-mcp@0.7.3`, not bare
+  `@iwo-szapar/data-mcp`). If the directory you launch Claude from has the
+  package anywhere in its `node_modules` tree (e.g. your project depends on
+  an older data-mcp), an unpinned `npx` resolves that local copy instead of
+  the latest published version — silently.
+- **Use an absolute path for `SB_MARKDOWN_ROOT`.** MCP servers do not
+  reliably inherit the cwd you expect; relative roots end up in surprising
+  places.
 
 First run: call the `setup_migrate` tool once. On the markdown backend it
 creates all collection directories directly — after that, every tool works

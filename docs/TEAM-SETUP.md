@@ -55,7 +55,7 @@ Claude Desktop config — **only `MEMORYOS_OWNER_ID` differs**:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.7.3"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/Users/alice/team-memory",
@@ -69,6 +69,15 @@ Claude Desktop config — **only `MEMORYOS_OWNER_ID` differs**:
 
 Bob uses `"MEMORYOS_OWNER_ID": "bob"`, Carol `"carol"`. Everyone keeps
 `MEMORYOS_SHARED_OWNER_ID: "team"`.
+
+Two config rules everyone must follow:
+
+- **Pin the package version in `args`** (shown above). With a bare
+  `@iwo-szapar/data-mcp`, npx resolves a locally installed copy if the
+  launch directory's `node_modules` tree contains one — members can end up
+  silently running different versions against the same backend.
+- **`SB_MARKDOWN_ROOT` must be an absolute path** to that member's own
+  clone. Relative paths resolve against whatever cwd the MCP host uses.
 
 ### 3. Bootstrap
 
@@ -121,7 +130,7 @@ Same pattern — shared URL + key, unique owner id:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.7.3"],
       "env": {
         "SB_BACKEND": "supabase",
         "SB_SUPABASE_URL": "https://yourproject.supabase.co",

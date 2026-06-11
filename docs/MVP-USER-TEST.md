@@ -1,0 +1,201 @@
+# Team Second Brain — User Test Manual (Claude Code, terminal)
+
+Hands-on acceptance test for team mode, run entirely from your terminal as a
+real user. You play both team members ("iwo" and "ola") in two Claude Code
+sessions. No scripts — everything is typed conversationally, which also
+tests whether Claude maps natural phrasing to the right MCP tools.
+
+**Version under test:** `@iwo-szapar/data-mcp@0.7.3`
+**Backend:** markdown (shared git repo)
+**Time:** ~20 minutes
+**You need:** Claude Code CLI, git, a GitHub account (or use a local bare repo)
+
+The automated contract behind this manual is enforced by
+`scripts/team-e2e.mjs` (25 checks) — this manual covers the layer those
+scripts can't: the human + Claude UX.
+
+---
+
+## Part 1 — Setup (5 min)
+
+### 1.1 Create the shared memory repo
+
+```bash
+cd ~
+gh repo create team-memory-test --private --clone
+cd team-memory-test
+git commit --allow-empty -m init && git push -u origin main
+cd ~
+```
+
+(No GitHub? `git init --bare ~/team-memory-bare.git -b main` and use that
+path as the clone URL below.)
+
+### 1.2 Create two member workspaces
+
+Each "member" gets their own directory containing their own clone:
+
+```bash
+mkdir -p ~/member-iwo ~/member-ola
+git clone git@github.com:YOUR_USER/team-memory-test.git ~/member-iwo/memory
+git clone git@github.com:YOUR_USER/team-memory-test.git ~/member-ola/memory
+```
+
+### 1.3 Configure each member's MCP server
+
+Create `~/member-iwo/.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "second-brain-data": {
+      "command": "npx",
+      "args": ["-y", "@iwo-szapar/data-mcp@0.7.3"],
+      "env": {
+        "SB_BACKEND": "markdown",
+        "SB_MARKDOWN_ROOT": "/Users/YOU/member-iwo/memory",
+        "MEMORYOS_OWNER_ID": "iwo",
+        "MEMORYOS_SHARED_OWNER_ID": "team"
+      }
+    }
+  }
+}
+```
+
+Create `~/member-ola/.mcp.json` — identical except:
+
+- `"SB_MARKDOWN_ROOT": "/Users/YOU/member-ola/memory"`
+- `"MEMORYOS_OWNER_ID": "ola"`
+
+Rules (these ARE part of the test — get them wrong and you should see it):
+
+- Version pinned in `args` — never bare `@iwo-szapar/data-mcp`
+- `SB_MARKDOWN_ROOT` absolute, pointing at that member's own clone
+- `MEMORYOS_SHARED_OWNER_ID` identical for both members
+
+### 1.4 Start both sessions
+
+Open two terminal tabs:
+
+```bash
+# Tab 1 (you are IWO)          # Tab 2 (you are OLA)
+cd ~/member-iwo && claude      cd ~/member-ola && claude
+```
+
+Approve the `second-brain-data` MCP server prompt in each tab.
+
+**CHECK 1:** In each tab ask: *"What MCP tools do you have from
+second-brain-data?"* — expect ~41 tools (knowledge, tasks, sessions,
+goals, contacts, setup, brain_stats...).
+
+> If the server fails to start or shows a wrong version: you are probably
+> in a directory whose `node_modules` contains data-mcp, or the version
+> isn't pinned. See "Config rules" in TEAM-SETUP.md.
+
+---
+
+## Part 2 — Bootstrap (2 min)
+
+| Step | Tab | Say | Expect |
+|---|---|---|---|
+| 2.1 | 1 | "Run setup_migrate" | reports created collections, nothing needing migration |
+| 2.2 | 1 | "Run setup_migrate again" | created: 0 (idempotent) |
+| 2.3 | 1 | "Commit and push everything in the memory repo" | clean push |
+| 2.4 | 2 | "Pull the memory repo" | collection dirs arrive |
+
+**CHECK 2:** `ls ~/member-ola/memory` shows collection directories
+(knowledge, tasks, decisions, ...).
+
+---
+
+## Part 3 — Core team contract (8 min)
+
+The sync ritual between steps is part of the product: **push after writing,
+pull before reading.** Say it explicitly each time ("...then commit and push
+the memory repo" / "pull the memory repo first, then...").
+
+| Step | Tab | Say | PASS if |
+|---|---|---|---|
+| 3.1 | 1 | "Remember privately: my negotiation floor for the pilot is 4k. Then push memory." | stored with private scope |
+| 3.2 | 2 | "Pull memory. What's my negotiation floor for the pilot?" | **finds nothing** — no mention of 4k |
+| 3.3 | 1 | "Store as shared team knowledge: we demo every Friday at 10. Push." | stored with shared scope |
+| 3.4 | 2 | "Pull. When do we demo?" | Friday at 10 |
+| 3.5 | 1 | "Create a shared high-priority task: Ola to review the onboarding doc. Push." | task created |
+| 3.6 | 2 | "Pull. List my tasks." | sees the onboarding task |
+| 3.7 | 2 | "Mark the onboarding review done. Push." | completes without error |
+| 3.8 | 1 | "Pull. Is the onboarding review done?" | yes |
+| 3.9 | 2 | Find a record id: `ls ~/member-ola/memory/knowledge/` won't show iwo's private file until pulled — after pull, copy the filename (uuid) of iwo's private item, then say: "Update knowledge record `<uuid>` to say the floor is 1k" | **"not found"** — not a permission error, no content leak |
+| 3.10 | both | "Show my brain stats" | iwo's knowledge count > ola's |
+
+**Step 3.2 and 3.9 are the security-relevant ones.** Any leak = stop,
+file an issue, do not ship.
+
+---
+
+## Part 4 — Search quality (3 min)
+
+Tests the 0.7.3 stemming + any-term fallback (issue #1297).
+
+| Step | Tab | Say | PASS if |
+|---|---|---|---|
+| 4.1 | 1 | "Store shared insight: Pricing experiment results — the Q2 pricing experiment increased conversion by 12 percent. Push." | stored |
+| 4.2 | 2 | "Pull. Recall: pricing experiments" (plural) | finds it |
+| 4.3 | 2 | "Recall: what happened with conversion and pricing?" | finds it (response may mention any-term fallback) |
+| 4.4 | 2 | "Recall: flibbertigibbet zzqx" | zero results — no made-up matches |
+
+---
+
+## Part 5 — Friction probe (2 min)
+
+Deliberately break the sync ritual:
+
+| Step | Tab | Say | Observe |
+|---|---|---|---|
+| 5.1 | 1 | "Store shared fact: concurrent note from iwo. Push." | ok |
+| 5.2 | 2 | **Without pulling:** "Store shared fact: concurrent note from ola. Then push." | push is rejected (non-fast-forward); watch whether Claude recovers by pulling/merging then pushing — records are different files, so the merge must be clean |
+| 5.3 | 1 | "Pull. Recall: concurrent note" | both items present |
+
+**CHECK 5:** open any file in `~/member-iwo/memory/knowledge/` — YAML
+frontmatter intact, `owner_id` present, content readable.
+
+---
+
+## Part 6 — Cleanup (1 min)
+
+| Tab | Say |
+|---|---|
+| 1 | "Pull. Delete all knowledge items and the onboarding task — yes, confirm. Push." |
+
+Expect Claude to set the delete confirmation itself. Then:
+
+```bash
+gh repo delete YOUR_USER/team-memory-test --yes   # if you used GitHub
+rm -rf ~/member-iwo ~/member-ola
+```
+
+---
+
+## Scorecard
+
+| Part | Checks | Blocker if failed? |
+|---|---|---|
+| 1 Setup | server boots, 41 tools | yes |
+| 2 Bootstrap | migrate works + idempotent | yes |
+| 3 Core contract | 10 steps; 3.2/3.9 are isolation | **3.2, 3.9: release blockers.** Others: investigate |
+| 4 Search | 4 steps | file against data-mcp, not a blocker |
+| 5 Friction | merge recovery | docs/UX problem, not code |
+| 6 Cleanup | delete with confirm | no |
+
+**Ship-ready** = Parts 1–3 fully green + no data corruption in Part 5.
+
+## What you're additionally observing throughout
+
+This manual intentionally leaves tool selection to Claude. Watch for:
+
+- Does Claude pick `knowledge_learn` vs `knowledge_store` sensibly?
+  (learn accepts only pattern/insight/lesson; store takes all 5 types)
+- Does it set `owner_scope: "shared"` when you say "shared team knowledge"
+  and default to private otherwise?
+- Does it handle `confirm: true` on deletes without you spelling it out?
+- Does it remember the pull/push ritual after you've asked twice, or do
+  you have to repeat it every time? (UX signal for the team product)
