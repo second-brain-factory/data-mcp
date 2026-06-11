@@ -21,10 +21,15 @@ export class OwnerScopeProxy implements DataAdapter {
     private ownerId: string;
     private sharedOwnerId: string;
     readonly ownerScopeEnabled = true;
+    /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
+    readonly createCollection?: (collection: string) => Promise<void>;
     constructor(inner: DataAdapter, config: OwnerRoutingConfig) {
         this.inner = inner;
         this.ownerId = config.ownerId;
         this.sharedOwnerId = config.sharedOwnerId;
+        if (inner.createCollection) {
+            this.createCollection = (collection: string) => inner.createCollection!(collection);
+        }
     }
     get backend(): 'pocketbase' | 'supabase' | 'markdown' {
         return this.inner.backend;

@@ -61,6 +61,14 @@ export interface DataAdapter {
     count(collection: string, filter?: Filter): Promise<number>;
     /** Check if a collection exists */
     collectionExists(collection: string): Promise<boolean>;
+    /**
+     * Create an empty collection (optional capability).
+     * Backends that can provision storage cheaply (markdown: mkdir) implement
+     * this so setup_migrate can auto-apply. Backends that need real DDL
+     * (Supabase SQL, PocketBase schemas) leave it undefined and setup_migrate
+     * falls back to report-only behavior.
+     */
+    createCollection?(collection: string): Promise<void>;
     /** List all collection names */
     listCollections(): Promise<string[]>;
     readonly ownerScopeEnabled?: boolean;

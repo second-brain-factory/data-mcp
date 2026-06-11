@@ -37,9 +37,15 @@ export class SchemaMap {
 export class SchemaMapProxy implements DataAdapter {
     private readonly inner: DataAdapter;
     private readonly schema: SchemaMap;
+    /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
+    readonly createCollection?: (collection: string) => Promise<void>;
     constructor(inner: DataAdapter, schema: SchemaMap) {
         this.inner = inner;
         this.schema = schema;
+        if (inner.createCollection) {
+            this.createCollection = (collection: string) =>
+                inner.createCollection!(this.schema.resolve(collection));
+        }
     }
     get backend(): 'pocketbase' | 'supabase' {
         return this.inner.backend as 'pocketbase' | 'supabase';

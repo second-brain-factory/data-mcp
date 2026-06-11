@@ -34,3 +34,10 @@ Consequence: 0.6.0 dist was partially hand-patched compiled output. Reconstructe
 - link-suggest: Class B. Canon .js uses single-line `for (x) stmt;` and `if (c) return v;` bodies (tsc always expands to 2 lines). SEMANTIC-IDENTICAL verified via esbuild minify-normalize compare (exit: identical minified output). Local interfaces (KnowledgeItem) + type-only constructs erase; remaining diffs are formatting-only.
 - link-related: local erased interface KnowledgeLink for typed field access; emit byte-matches canon.
 ALL 26 memory tools now verified. Full module set complete: 26 memory + 4 setup + 11 business + core/adapters.
+
+## issue-1260 (2026-06-10): C2 fix rebuilds — Class B entries retired
+The C2 setup_migrate fix changed `src/adapter/{types,markdown,schema-map,owner-scope}.ts` and `src/tools/setup/{setup-migrate,setup-status}.ts`. Their dist counterparts were rebuilt with tsc and committed, so dist is now TRUE compiler output for those modules:
+- Removed Class B entries: adapter/markdown.{js,d.ts}, adapter/owner-scope.{js,d.ts}, tools/setup/setup-migrate.d.ts, tools/setup/setup-status.d.ts
+- Removed extra: entries: adapter/markdown + adapter/owner-scope .map files (now committed)
+- These modules now hold the standard invariant: dist == tsc(src), no allowlist needed.
+Behavior delta (intentional, issue-1260): `setup_migrate` auto-creates collection dirs on backends exposing the optional `DataAdapter.createCollection` capability (markdown only); `knowledge_links` added to setup_migrate/setup_status expected-collection lists; supabase/pocketbase behavior unchanged. Regression guard: `scripts/team-e2e.mjs` slice 0.
