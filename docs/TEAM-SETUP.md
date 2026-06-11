@@ -175,14 +175,26 @@ Owner scoping is **trust-based, not cryptographic**:
 
 - `MEMORYOS_OWNER_ID` is just an env var. Any member can edit their own
   config to another member's owner id and read that member's private scope.
-- On markdown, private records are plain files in a repo every member can
-  read anyway.
-- On Supabase, every member holds the service role key, which can query any
-  row directly, bypassing the proxy.
+- On markdown, private records are plain cleartext files in a repo every
+  member can read. This is not a theoretical "could": **a teammate's AI
+  assistant has filesystem access to the repo and WILL read and quote your
+  private records the moment a question touches them** — no deliberate
+  bypass, no malice, just an innocent question like "what do we know about
+  X?". On markdown, the private scope *organizes* memory; it does not keep
+  secrets.
+- Soft-deleted records are moved to `_archive/` inside the markdown root —
+  they are not destroyed. `setup_migrate` writes a `.gitignore` covering
+  `_archive/` (since 0.7.4) so a reflexive `git add -A && git push` cannot
+  publish "deleted" private records. Anything pushed before that guard
+  existed stays in git history until removed with `git filter-repo`.
+- On Supabase, private records never sit on teammates' disks, which is
+  materially better. The residual hole: every member holds the service role
+  key, which can query any row directly, bypassing the proxy.
 
 Use team mode to keep private and shared memory *organized and out of each
-other's way* — not to protect secrets from your own teammates. Do not store
-data a teammate must never see.
+other's way* — not to protect secrets from your own teammates. If a record
+must never be seen by a teammate (or their AI assistant), keep it out of
+the team brain entirely, or use Supabase and accept the shared-key caveat.
 
 ## Known limitations
 

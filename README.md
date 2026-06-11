@@ -109,15 +109,20 @@ walkthrough for both backends, `.mcp.json` examples, verification ritual.
 
 - **Trust-based isolation, not a security boundary.** `MEMORYOS_OWNER_ID`
   is an env var any member can change, and every member holds backend
-  credentials that can read all rows/files directly. Use scoping to keep
-  private and shared memory organized — not to hide secrets from teammates.
+  credentials that can read all rows/files directly. On markdown, private
+  records are cleartext files on every member's disk — a teammate's AI
+  assistant **will** read and quote them when an innocent question touches
+  them. Use scoping to keep private and shared memory organized — not to
+  hide secrets from teammates. Secrets belong outside the team brain (or
+  on Supabase, which keeps private rows off teammates' disks but still
+  shares the service key).
 - **PocketBase backend does not support owner scoping.** Owner routing is
   silently skipped on PocketBase — `MEMORYOS_OWNER_ID` has no effect there.
   Use markdown or Supabase for team mode.
 - **Markdown backend has no cross-machine concurrency control.** Sync the
   shared root with git pull/push discipline (see the runbook).
 
-This contract is enforced in CI by `scripts/team-e2e.mjs` (markdown, 25
+This contract is enforced in CI by `scripts/team-e2e.mjs` (markdown, 28
 checks) and `scripts/team-e2e-supabase.mjs` (Supabase, same core contract;
 runs when `SB_SUPABASE_URL`/`SB_SUPABASE_KEY` are provided, skips
 otherwise): two simulated members, private isolation, shared visibility,

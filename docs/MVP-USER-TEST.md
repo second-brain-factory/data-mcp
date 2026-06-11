@@ -117,7 +117,8 @@ the memory repo" / "pull the memory repo first, then...").
 | Step | Tab | Say | PASS if |
 |---|---|---|---|
 | 3.1 | 1 | "Remember privately: my negotiation floor for the pilot is 4k. Then push memory." | stored with private scope |
-| 3.2 | 2 | "Pull memory. What's my negotiation floor for the pilot?" | **finds nothing** — no mention of 4k |
+| 3.2a | 2 | "Pull memory. Then call the knowledge_recall MCP tool directly with query 'negotiation floor' and show me the raw JSON result." | **`total: 0`** — the MCP layer must not return iwo's private record. This is the real isolation check. |
+| 3.2b | 2 | "What's my negotiation floor for the pilot?" | **Expected to "fail" on markdown — that is the point.** Claude has filesystem access to the shared repo and will likely read iwo's private cleartext file directly and answer "4k". This step demonstrates the trust model, not a bug: on markdown, private scope organizes memory, it does not keep secrets (see TEAM-SETUP.md security model). Record what happened; do not file it as a data-mcp issue. |
 | 3.3 | 1 | "Store as shared team knowledge: we demo every Friday at 10. Push." | stored with shared scope |
 | 3.4 | 2 | "Pull. When do we demo?" | Friday at 10 |
 | 3.5 | 1 | "Create a shared high-priority task: Ola to review the onboarding doc. Push." | task created |
@@ -127,8 +128,14 @@ the memory repo" / "pull the memory repo first, then...").
 | 3.9 | 2 | Find a record id: `ls ~/member-ola/memory/knowledge/` won't show iwo's private file until pulled — after pull, copy the filename (uuid) of iwo's private item, then say: "Update knowledge record `<uuid>` to say the floor is 1k" | **"not found"** — not a permission error, no content leak |
 | 3.10 | both | "Show my brain stats" | iwo's knowledge count > ola's |
 
-**Step 3.2 and 3.9 are the security-relevant ones.** Any leak = stop,
-file an issue, do not ship.
+**Steps 3.2a and 3.9 are the security-relevant ones.** Any MCP-layer leak
+(3.2a returns iwo's record, or 3.9 leaks content/permission detail) = stop,
+file an issue, do not ship. 3.2b "failing" on markdown is documented
+behavior, not a blocker.
+
+Also note 3.1 friction: Claude may initially refuse to store a private item
+in a repo teammates can read — a correct instinct given the trust model.
+Confirming "yes, store it privately" resolves it.
 
 ---
 
@@ -166,7 +173,18 @@ frontmatter intact, `owner_id` present, content readable.
 |---|---|
 | 1 | "Pull. Delete all knowledge items and the onboarding task — yes, confirm. Push." |
 
-Expect Claude to set the delete confirmation itself. Then:
+Expect Claude to set the delete confirmation itself.
+
+> **`_archive/` warning:** `knowledge_delete` is a soft delete — records
+> (including private ones) are *moved* to `_archive/` inside the memory
+> root, not destroyed. Since 0.7.4, `setup_migrate` writes a `.gitignore`
+> covering `_archive/`, so the push in this step must NOT commit archived
+> files. **Verify:** `git -C ~/member-iwo/memory status` shows no
+> `_archive/` paths staged, and the pushed commit contains only deletions.
+> If archived records reach the remote, that is a release blocker. (Anything
+> pushed before 0.7.4 stays in git history until `git filter-repo`.)
+
+Then:
 
 ```bash
 gh repo delete YOUR_USER/team-memory-test --yes   # if you used GitHub
@@ -181,12 +199,13 @@ rm -rf ~/member-iwo ~/member-ola
 |---|---|---|
 | 1 Setup | server boots, 41 tools | yes |
 | 2 Bootstrap | migrate works + idempotent | yes |
-| 3 Core contract | 10 steps; 3.2/3.9 are isolation | **3.2, 3.9: release blockers.** Others: investigate |
+| 3 Core contract | 11 steps; 3.2a/3.9 are isolation | **3.2a, 3.9: release blockers.** 3.2b: expected trust-model demo on markdown. Others: investigate |
 | 4 Search | 4 steps | file against data-mcp, not a blocker |
 | 5 Friction | merge recovery | docs/UX problem, not code |
-| 6 Cleanup | delete with confirm | no |
+| 6 Cleanup | delete with confirm; `_archive/` must not be pushed | **archived records on remote: release blocker** |
 
-**Ship-ready** = Parts 1–3 fully green + no data corruption in Part 5.
+**Ship-ready** = Parts 1–3 fully green (3.2b exempt) + no data corruption
+in Part 5 + no `_archive/` files pushed in Part 6.
 
 ## What you're additionally observing throughout
 
