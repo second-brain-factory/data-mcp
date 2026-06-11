@@ -11,6 +11,8 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DataAdapter, FilterClause } from '../../adapter/types.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 import { expandQueryWithAliases } from '../../search/alias-expansion.js';
+import { buildFallbackTerms } from '../../search/term-utils.js';
+import { textSearchWithFallback } from '../../search/fallback-search.js';
 export function registerKnowledgeRecall(server: McpServer, adapter: DataAdapter): void {
     server.tool('knowledge_recall', 'Search your persistent memory. Full-text search across knowledge items and decisions. Empty query returns most recent items. Supports alias expansion (e.g., "payment" also finds "stripe").', {
         query: z.string().max(500).optional().describe('Search query (full-text search). Empty returns recent items.'),
@@ -46,6 +48,9 @@ export function registerKnowledgeRecall(server: McpServer, adapter: DataAdapter)
             // Expand query with aliases
             const expandedTerms = await expandQueryWithAliases(adapter, searchQuery);
             const expandedQuery = expandedTerms.join(' ');
+            // Fallback terms: stemmed tokens of the query + alias expansions
+            // (issue #1297 — only used when the primary search returns nothing)
+            const fallbackTerms = buildFallbackTerms(searchQuery, expandedTerms);
             // Search knowledge
             const clauses: FilterClause[] = [];
             if (params.type) {
@@ -55,29 +60,34 @@ export function registerKnowledgeRecall(server: McpServer, adapter: DataAdapter)
                 clauses.push({ field: 'owner_scope', op: 'eq', value: params.owner_scope });
             }
             const typeFilter = clauses.length > 0 ? [clauses] : undefined;
-            const knowledgeResults = await adapter.textSearch('knowledge', expandedQuery, {
+            const knowledgeSearch = await textSearchWithFallback(adapter, 'knowledge', expandedQuery, fallbackTerms, {
                 fields: ['title', 'content', 'summary'],
                 filter: typeFilter,
                 limit: resultLimit,
             });
+            const knowledgeResults = knowledgeSearch.items;
             // Search decisions (if table exists)
             let decisionResults: Record<string, unknown>[] = [];
+            let decisionsUsedFallback = false;
             try {
                 const decisionsExist = await adapter.collectionExists('decisions');
                 if (decisionsExist) {
                     const decisionFilter = params.owner_scope && adapter.ownerScopeEnabled
                         ? [[{ field: 'owner_scope', op: 'eq', value: params.owner_scope } as FilterClause]]
                         : undefined;
-                    decisionResults = await adapter.textSearch('decisions', expandedQuery, {
+                    const decisionSearch = await textSearchWithFallback(adapter, 'decisions', expandedQuery, fallbackTerms, {
                         fields: ['title', 'context', 'chosen_option'],
                         filter: decisionFilter,
                         limit: 5,
                     });
+                    decisionResults = decisionSearch.items;
+                    decisionsUsedFallback = decisionSearch.usedFallback;
                 }
             }
             catch {
                 // Decisions table might not exist — degrade silently
             }
+            const usedFallback = knowledgeSearch.usedFallback || decisionsUsedFallback;
             const results = [
                 ...knowledgeResults.map((k) => ({ ...k, _source: 'knowledge' })),
                 ...decisionResults.map((d) => ({ ...d, _source: 'decision' })),
@@ -87,6 +97,8 @@ export function registerKnowledgeRecall(server: McpServer, adapter: DataAdapter)
                 total: results.length,
                 query: searchQuery,
                 expanded_terms: expandedTerms.length > searchQuery.split(/\s+/).length ? expandedTerms : undefined,
+                matched_via: usedFallback ? 'any_term_fallback' : undefined,
+                fallback_terms: usedFallback ? fallbackTerms : undefined,
             });
         }
         catch (error) {

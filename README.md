@@ -106,15 +106,21 @@ walkthrough for both backends, `.mcp.json` examples, verification ritual.
 - **Markdown backend has no cross-machine concurrency control.** Sync the
   shared root with git pull/push discipline (see the runbook).
 
-This contract is enforced in CI by `scripts/team-e2e.mjs` (markdown, 18
-checks) and `scripts/team-e2e-supabase.mjs` (Supabase, same contract;
+This contract is enforced in CI by `scripts/team-e2e.mjs` (markdown, 25
+checks) and `scripts/team-e2e-supabase.mjs` (Supabase, same core contract;
 runs when `SB_SUPABASE_URL`/`SB_SUPABASE_KEY` are provided, skips
 otherwise): two simulated members, private isolation, shared visibility,
 shared task handoff, cross-owner write protection, `brain_stats` scoping.
 
-Search note: the markdown backend's `textSearch` is exact-substring matching
-on lowercased text (ranked tags > title > body). Multi-word queries match
-contiguous substrings only — prefer single, distinctive words.
+Search note: `knowledge_recall` first runs the backend's native search with
+the full query (markdown: exact-substring ranked tags > title > body;
+Supabase: tsvector with English stemming; PocketBase: LIKE). If that returns
+nothing, it falls back to **any-term matching**: the query is tokenized,
+stopwords dropped, and each term is prefix-stemmed (plurals, -ing/-ed) so
+inflected words match — results are ranked by how many terms matched.
+Exact-match queries are unaffected; fallback responses include
+`matched_via: "any_term_fallback"`. Other search tools (`contact_search`,
+`prospect_search`) remain native-search only.
 
 ## Tools (41)
 

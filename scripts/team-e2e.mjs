@@ -19,6 +19,8 @@
  *  5. Tasks: shared task created by alice can be completed by bob
  *  6. Bob cannot update alice's private record by id (no existence leak)
  *  7. brain_stats sees only the caller's visible records
+ *  8. Search stemming + any-term fallback (issue #1297): inflected and
+ *     multi-word queries find items; exact-match queries unchanged
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -165,6 +167,37 @@ const aliceKn = aliceStats.collections?.knowledge ?? aliceStats.knowledge?.total
 const bobKn = bobStats.collections?.knowledge ?? bobStats.knowledge?.total ?? JSON.stringify(bobStats).match(/"knowledge"[^0-9]*([0-9]+)/)?.[1];
 console.log(`  alice knowledge count: ${aliceKn}, bob: ${bobKn}`);
 check('alice sees more knowledge than bob (private+shared vs shared)', Number(aliceKn) > Number(bobKn), `alice=${aliceKn} bob=${bobKn}`);
+
+// --- 8. Search stemming + any-term fallback (issue #1297) ---
+console.log('\n[8] Search stemming + any-term fallback');
+const searchSeed = await call(alice, 'knowledge_learn', {
+  type: 'insight', title: 'Pricing experiment results', content: 'The Q2 pricing experiment increased conversion by 12 percent.',
+  owner_scope: 'shared', tags: ['e2e-search'],
+});
+check('seed item stored for search slice', searchSeed.stored === true);
+
+// 8a. Exact-match query still works (ranking path untouched)
+const exact = await call(alice, 'knowledge_recall', { query: 'Pricing experiment' });
+const exactStr = JSON.stringify(exact);
+check('exact-match query finds item without fallback', exactStr.includes('Pricing experiment results') && !exactStr.includes('any_term_fallback'), exactStr.slice(0, 300));
+
+// 8b. Inflected single word: "experiments" (plural) must match "experiment"
+const inflected = await call(alice, 'knowledge_recall', { query: 'experiments' });
+check('inflected query (experiments) finds item via stemming', JSON.stringify(inflected).includes('Pricing experiment results'), JSON.stringify(inflected).slice(0, 300));
+
+// 8c. Multi-word natural query where the full phrase is NOT a substring
+const multi = await call(alice, 'knowledge_recall', { query: 'pricing conversion results' });
+const multiStr = JSON.stringify(multi);
+check('multi-word query falls back to any-term matching', multiStr.includes('Pricing experiment results'), multiStr.slice(0, 300));
+check('fallback response reports matched_via', multiStr.includes('any_term_fallback'), multiStr.slice(0, 300));
+
+// 8d. Verb inflection: "experimenting" -> stem "experiment"
+const verbed = await call(alice, 'knowledge_recall', { query: 'experimenting with prices' });
+check('verb-inflected multi-word query finds item', JSON.stringify(verbed).includes('Pricing experiment results'), JSON.stringify(verbed).slice(0, 300));
+
+// 8e. Garbage query still returns zero (fallback does not hallucinate matches)
+const garbage = await call(alice, 'knowledge_recall', { query: 'zzqx flibbertigibbet' });
+check('nonsense query returns no results', (garbage.total ?? -1) === 0, JSON.stringify(garbage).slice(0, 200));
 
 // --- summary ---
 console.log(`\n${'='.repeat(50)}\nRESULT: ${pass} passed, ${fail} failed`);

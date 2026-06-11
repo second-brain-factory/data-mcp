@@ -182,5 +182,5 @@ data a teammate must never see.
 | **PocketBase has no owner scoping** | Owner routing is silently skipped on the PocketBase backend — `MEMORYOS_OWNER_ID` has no effect there. Use markdown or Supabase for team mode. |
 | **Supabase schema is manual** | `setup_migrate` reports missing tables but cannot create them. Apply SQL via `setup_bootstrap` or `migrations/supabase/`. |
 | **Markdown has no cross-machine concurrency control** | Sync via git pull/push discipline; see the sync ritual above. |
-| **Markdown search is exact-substring** | Prefer single, distinctive query words. |
+| **Markdown search is exact-substring (first pass)** | `knowledge_recall` falls back to any-term, prefix-stemmed matching when the full query finds nothing (since 0.7.3), so natural multi-word and inflected queries work. Other search tools (`contact_search`, `prospect_search`) remain exact-substring — use single, distinctive words there. |
 | **Trust-based isolation** | See the security model above. |
