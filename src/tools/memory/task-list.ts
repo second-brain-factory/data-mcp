@@ -9,12 +9,18 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DataAdapter, FilterClause } from '../../adapter/types.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 export function registerTaskList(server: McpServer, adapter: DataAdapter): void {
-    server.tool('task_list', 'List tasks with optional status and priority filters.', {
-        status: z.enum(['todo', 'in_progress', 'done', 'cancelled']).optional().describe('Filter by status'),
-        priority: z.enum(['low', 'medium', 'high', 'urgent']).optional().describe('Filter by priority'),
-        limit: z.number().int().min(1).max(100).optional().describe('Max results (default 20)'),
-        offset: z.number().int().min(0).optional().describe('Offset for pagination (default 0)'),
-    }, { readOnlyHint: true }, withGracefulDegradation('tasks', adapter, async (params) => {
+    server.registerTool('task_list', {
+        description: 'List tasks with optional status and priority filters.',
+        inputSchema: {
+            status: z.enum(['todo', 'in_progress', 'done', 'cancelled']).optional().describe('Filter by status'),
+            priority: z.enum(['low', 'medium', 'high', 'urgent']).optional().describe('Filter by priority'),
+            limit: z.number().int().min(1).max(100).optional().describe('Max results (default 20)'),
+            offset: z.number().int().min(0).optional().describe('Offset for pagination (default 0)'),
+        },
+        annotations: { readOnlyHint: true },
+        // Hot-path tool: keep loaded under client-side tool search.
+        _meta: { 'anthropic/alwaysLoad': true },
+    }, withGracefulDegradation('tasks', adapter, async (params) => {
         try {
             const clauses: FilterClause[] = [];
             if (params.status) {

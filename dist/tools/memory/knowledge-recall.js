@@ -11,12 +11,19 @@ import { expandQueryWithAliases } from '../../search/alias-expansion.js';
 import { buildFallbackTerms } from '../../search/term-utils.js';
 import { textSearchWithFallback } from '../../search/fallback-search.js';
 export function registerKnowledgeRecall(server, adapter) {
-    server.tool('knowledge_recall', 'Search your persistent memory. Full-text search across knowledge items and decisions. Empty query returns most recent items. Supports alias expansion (e.g., "payment" also finds "stripe").', {
-        query: z.string().max(500).optional().describe('Search query (full-text search). Empty returns recent items.'),
-        type: z.enum(['fact', 'pattern', 'insight', 'lesson', 'reference']).optional().describe('Filter by knowledge type'),
-        owner_scope: z.enum(['private', 'shared']).optional().describe('Filter to private or shared team memory'),
-        limit: z.number().int().min(1).max(50).optional().describe('Max results (default 10)'),
-    }, { readOnlyHint: true }, withGracefulDegradation('knowledge', adapter, async (params) => {
+    server.registerTool('knowledge_recall', {
+        description: 'Search your persistent memory. Full-text search across knowledge items and decisions. Empty query returns most recent items. Supports alias expansion (e.g., "payment" also finds "stripe").',
+        inputSchema: {
+            query: z.string().max(500).optional().describe('Search query (full-text search). Empty returns recent items.'),
+            type: z.enum(['fact', 'pattern', 'insight', 'lesson', 'reference']).optional().describe('Filter by knowledge type'),
+            owner_scope: z.enum(['private', 'shared']).optional().describe('Filter to private or shared team memory'),
+            limit: z.number().int().min(1).max(50).optional().describe('Max results (default 10)'),
+        },
+        annotations: { readOnlyHint: true },
+        // Hot-path tool: ask tool-search-capable clients (Claude Code, API
+        // defer_loading) to keep this definition loaded instead of deferring it.
+        _meta: { 'anthropic/alwaysLoad': true },
+    }, withGracefulDegradation('knowledge', adapter, async (params) => {
         try {
             const resultLimit = params.limit ?? 10;
             // Empty query: return most recent items

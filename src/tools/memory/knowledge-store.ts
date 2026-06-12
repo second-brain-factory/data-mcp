@@ -10,13 +10,18 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DataAdapter, FilterClause } from '../../adapter/types.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation, generateSummary } from '../shared.js';
 export function registerKnowledgeStore(server: McpServer, adapter: DataAdapter): void {
-    server.tool('knowledge_store', 'Store a knowledge item in your persistent memory. Supports facts, patterns, insights, lessons, and references. Deduplicates by type + title.', {
-        type: z.enum(['fact', 'pattern', 'insight', 'lesson', 'reference']).describe('Type of knowledge'),
-        title: z.string().min(1).max(500).describe('Title of the knowledge item'),
-        content: z.string().min(1).max(10000).describe('Content of the knowledge item'),
-        tags: z.array(z.string().max(100)).max(20).optional().describe('Tags for categorization'),
-        source: z.string().max(500).optional().describe('Source of the knowledge (URL, book, conversation, etc.)'),
-        owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
+    server.registerTool('knowledge_store', {
+        description: 'Store a knowledge item in your persistent memory. Supports facts, patterns, insights, lessons, and references. Deduplicates by type + title.',
+        inputSchema: {
+            type: z.enum(['fact', 'pattern', 'insight', 'lesson', 'reference']).describe('Type of knowledge'),
+            title: z.string().min(1).max(500).describe('Title of the knowledge item'),
+            content: z.string().min(1).max(10000).describe('Content of the knowledge item'),
+            tags: z.array(z.string().max(100)).max(20).optional().describe('Tags for categorization'),
+            source: z.string().max(500).optional().describe('Source of the knowledge (URL, book, conversation, etc.)'),
+            owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
+        },
+        // Hot-path tool: keep loaded under client-side tool search.
+        _meta: { 'anthropic/alwaysLoad': true },
     }, withGracefulDegradation('knowledge', adapter, async (params) => {
         try {
             // Dedup: check for existing item with same type + title
