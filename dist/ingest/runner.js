@@ -11,8 +11,11 @@
 import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve, sep, basename, extname, relative } from 'node:path';
-import { detectFormat, detectConvertedFormat, refineJsonFormat, refinePathFormat, looksBinary, stripBom } from './detect.js';
+import { detectFormat, detectConvertedFormat, detectEmailFormat, refineJsonFormat, refinePathFormat, looksBinary, stripBom } from './detect.js';
 import { detectExportKind, buildSlackUserMap, SLACK_METADATA_FILES, SLACK_DAY_FILE } from './export-context.js';
+import { parseEmailMessage } from './email/mime.js';
+import { groupEmailThreads } from './email/threads.js';
+import { readMbox } from './email/mbox.js';
 import { PARSER_REGISTRY } from './registry.js';
 import { parseOffice } from './parsers/office.js';
 import { createConverter, sanitizeConverted, INSTALL_HINT } from './convert.js';
@@ -30,6 +33,11 @@ export const EXPORT_MAX_FILES = 2000;
  * exceeds 10MB, so files with that exact name get a dedicated cap.
  */
 export const CHAT_EXPORT_MAX_BYTES = 200 * 1024 * 1024; // 200MB
+/**
+ * mbox sanity cap (issue #20). Streamed — never loaded whole — so the cap
+ * is a guard against pathological inputs, not a memory bound.
+ */
+export const MBOX_MAX_BYTES = 4 * 1024 * 1024 * 1024; // 4GB
 const SKIP_DIRS = new Set(['node_modules', '__pycache__', 'dist', '.git']);
 /** sha256 of normalized (trimmed) content */
 export function contentHash(content) {
@@ -252,6 +260,104 @@ async function processFile(adapter, filePath, root, exportCtx, opts, seenTitles,
         return report;
     }
 }
+/**
+ * Email batch (issue #20): parse .eml files (per-file error isolation) and
+ * stream .mbox files (readMbox — bounded memory), thread-group ACROSS the
+ * whole batch (D3), write one record per thread, and attribute every
+ * record to its thread's oldest message's file so per-file reports stay
+ * meaningful. Bulk mail is skipped by default (skipped_unsupported with
+ * reason) unless opts.includeBulk.
+ */
+async function processEmailBatch(adapter, files, opts, seenTitles) {
+    const reports = new Map();
+    const emails = [];
+    const sources = []; // parallel to emails
+    for (const { path: filePath, kind } of files) {
+        const report = { path: filePath, format: kind, status: 'skipped_empty', records: 0, duplicates: 0 };
+        reports.set(filePath, report);
+        try {
+            const stat = await fs.stat(filePath);
+            if (kind === 'mbox') {
+                if (stat.size > MBOX_MAX_BYTES) {
+                    report.status = 'skipped_too_large';
+                    continue;
+                }
+                const { emails: parsed, messageErrors } = await readMbox(filePath);
+                for (const e of parsed) {
+                    emails.push(e);
+                    sources.push(filePath);
+                }
+                if (messageErrors > 0)
+                    report.error = `${messageErrors} malformed message(s) skipped`;
+                continue;
+            }
+            if (stat.size > MAX_FILE_BYTES) {
+                report.status = 'skipped_too_large';
+                continue;
+            }
+            const buffer = await fs.readFile(filePath);
+            if (looksBinary(buffer.subarray(0, 8192))) {
+                report.status = 'skipped_unsupported';
+                report.error = 'binary content';
+                continue;
+            }
+            emails.push(parseEmailMessage(stripBom(buffer.toString('utf8'))));
+            sources.push(filePath);
+        }
+        catch (error) {
+            report.status = 'error';
+            report.error = error instanceof Error ? error.message : String(error);
+        }
+    }
+    const { items, origins, bulkIndices } = groupEmailThreads(emails, { includeBulk: opts.includeBulk ?? false });
+    const bulkBySource = new Map();
+    for (const idx of bulkIndices) {
+        bulkBySource.set(sources[idx], (bulkBySource.get(sources[idx]) ?? 0) + 1);
+    }
+    for (const [sourcePath, n] of bulkBySource) {
+        const report = reports.get(sourcePath);
+        if (report.status === 'skipped_empty' && report.format === 'eml') {
+            report.status = 'skipped_unsupported';
+            report.error = 'bulk mail (List-Unsubscribe/Precedence) — pass include_bulk to ingest';
+        }
+        else if (report.format === 'mbox') {
+            report.error = [report.error, `${n} bulk message(s) skipped — pass include_bulk to ingest`].filter(Boolean).join('; ');
+        }
+    }
+    const outcomes = new Map();
+    for (let i = 0; i < items.length; i++) {
+        const sourcePath = sources[origins[i]];
+        let outcome = outcomes.get(sourcePath);
+        if (!outcome) {
+            outcome = { created: 0, duplicates: 0, changed: 0 };
+            outcomes.set(sourcePath, outcome);
+        }
+        const format = reports.get(sourcePath).format ?? 'eml';
+        const hash = contentHash(items[i].content);
+        await writeItem(adapter, items[i], hash, format, sourcePath, opts, seenTitles, outcome);
+    }
+    for (const [sourcePath, outcome] of outcomes) {
+        const report = reports.get(sourcePath);
+        report.records = outcome.created;
+        report.duplicates = outcome.duplicates;
+        if (outcome.changed > 0)
+            report.error = `${outcome.changed} record(s) changed since last ingest — not updated (use knowledge_update)`;
+        report.status = outcome.created > 0 ? (opts.dryRun ? 'dry_run' : 'created') : 'skipped_duplicate';
+    }
+    // Files whose messages merged into a thread attributed elsewhere
+    const originSet = new Set(origins.map((o) => sources[o]));
+    const bulkSet = new Set(bulkIndices);
+    for (let i = 0; i < emails.length; i++) {
+        const report = reports.get(sources[i]);
+        if (report.status !== 'skipped_empty' || bulkSet.has(i) || originSet.has(sources[i]))
+            continue;
+        if (emails[i].body.trim().length > 0 || emails[i].subject.trim().length > 0) {
+            report.status = 'skipped_duplicate';
+            report.error = 'merged into a thread record from another file';
+        }
+    }
+    return files.map((f) => reports.get(f.path));
+}
 /** Execute an ingest run. Per-file errors never abort the batch. */
 export async function runIngest(adapter, opts) {
     const target = resolve(opts.path);
@@ -290,8 +396,20 @@ export async function runIngest(adapter, opts) {
     const converter = opts.converter ?? createConverter();
     const seenTitles = new Set();
     const reports = [];
+    const emailFiles = [];
     for (const file of files) {
+        // Email archives (issue #20) batch across files: threads group
+        // ACROSS .eml/.mbox files (approved deviation D3), so they are
+        // collected here and processed together after the per-file loop.
+        const emailKind = detectEmailFormat(file);
+        if (emailKind) {
+            emailFiles.push({ path: file, kind: emailKind });
+            continue;
+        }
         reports.push(await processFile(adapter, file, target, exportCtx, opts, seenTitles, converter));
+    }
+    if (emailFiles.length > 0) {
+        reports.push(...await processEmailBatch(adapter, emailFiles, opts, seenTitles));
     }
     const count = (statuses) => reports.filter((r) => statuses.includes(r.status)).length;
     return {

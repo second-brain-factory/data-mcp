@@ -19,13 +19,14 @@ import { SUPPORTED_FORMATS, CONVERTED_FORMATS } from '../../ingest/registry.js';
 
 export function registerIngest(server: McpServer, adapter: DataAdapter): void {
     server.registerTool('ingest', {
-        description: `Bulk-import local files or directories into knowledge records. Supported formats: ${SUPPORTED_FORMATS.join(', ')} (.md, .txt, .csv, .json, .html, .enex), plus ${CONVERTED_FORMATS.join(', ')} when markitdown is installed. Auto-detected exports: ChatGPT/Claude chat exports (conversations.json — one record per conversation), Notion workspace exports (clean titles, folder tags, database rows), Slack workspace exports (one record per channel-day, names resolved, threads grouped), Google Keep notes, Evernote ENEX. Recurses directories (skips dotfiles, binaries, node_modules; max ${MAX_FILES} files, raised for recognized exports). Defaults to dry_run preview — pass dry_run: false to write. Idempotent: re-ingesting the same files creates no duplicates.`,
+        description: `Bulk-import local files or directories into knowledge records. Supported formats: ${SUPPORTED_FORMATS.join(', ')} (.md, .txt, .csv, .json, .html, .enex, .eml, .mbox), plus ${CONVERTED_FORMATS.join(', ')} when markitdown is installed. Auto-detected exports: ChatGPT/Claude chat exports (conversations.json — one record per conversation), Notion workspace exports (clean titles, folder tags, database rows), Slack workspace exports (one record per channel-day, names resolved, threads grouped), Google Keep notes, Evernote ENEX, email archives (.mbox Gmail Takeout/Thunderbird + .eml — one record per thread, quoted replies trimmed, bulk mail skipped unless include_bulk). Recurses directories (skips dotfiles, binaries, node_modules; max ${MAX_FILES} files, raised for recognized exports). Defaults to dry_run preview — pass dry_run: false to write. Idempotent: re-ingesting the same files creates no duplicates.`,
         inputSchema: {
             path: z.string().min(1).max(1000).describe('Absolute path to a file or directory to ingest'),
             dry_run: z.boolean().optional().describe('Preview without writing (default true). Set false to create records.'),
             owner_scope: z.enum(['private', 'shared']).optional().describe('Store records privately for this user or in shared team memory'),
+            include_bulk: z.boolean().optional().describe('Email archives only: also ingest bulk mail (newsletters/notifications with List-Unsubscribe or Precedence: bulk). Default false.'),
         },
-    }, withGracefulDegradation('knowledge', adapter, async (params: { path: string; dry_run?: boolean; owner_scope?: 'private' | 'shared' }) => {
+    }, withGracefulDegradation('knowledge', adapter, async (params: { path: string; dry_run?: boolean; owner_scope?: 'private' | 'shared'; include_bulk?: boolean }) => {
         try {
             // Markdown backend: never ingest the brain's own storage directory
             const forbiddenRoots: string[] = [];
@@ -37,6 +38,7 @@ export function registerIngest(server: McpServer, adapter: DataAdapter): void {
                 dryRun: params.dry_run ?? true,
                 ownerScope: params.owner_scope,
                 forbiddenRoots,
+                includeBulk: params.include_bulk,
             });
             const verb = summary.dry_run ? 'would create' : 'created';
             return makeToolResponse({
