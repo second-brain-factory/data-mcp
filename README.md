@@ -168,7 +168,14 @@ Exact-match queries are unaffected; fallback responses include
   per sheet, PPTX one per slide; converted records carry
   `metadata.converter` provenance. Without markitdown, office files report
   a per-file error with the install hint and the rest of the batch
-  continues. Recurses directories (skips dotfiles, binaries,
+  continues. **ChatGPT and Claude chat exports** are auto-detected by
+  content shape (both vendors ship a `conversations.json` — extract the
+  export zip first): one record per conversation with vendor tags and
+  `metadata.conversation_date`; ChatGPT's branching message graph is walked
+  along the canonical path only (regenerated answers excluded), long
+  conversations split at message boundaries with `(part n/m)` titles, and
+  `conversations.json` files are accepted up to 200MB. Recurses
+  directories (skips dotfiles, binaries,
   `node_modules`; capped at
   200 files), splits long documents at section/paragraph boundaries, and
   dedupes by `(type, title)` with a sha256 content hash stored in record

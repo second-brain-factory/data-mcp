@@ -43,6 +43,28 @@ export function detectConvertedFormat(filePath: string): string | null {
 }
 
 /**
+ * Refine a generic `json` detection into a chat-export format (issue #18).
+ * Pure string heuristic on a bounded prefix — exports can be 100MB+, so we
+ * never JSON.parse here; the vendor parsers do strict validation and any
+ * mismatch surfaces as a per-file parse error.
+ *
+ * ChatGPT conversations.json: array elements carry `"mapping"` (node graph)
+ * and `"current_node"`. Claude conversations.json: elements carry
+ * `"chat_messages"`. Both keys are vendor-specific enough that a prefix
+ * scan is unambiguous; generic JSON stays `json`.
+ */
+export function refineJsonFormat(content: string): 'chatgpt' | 'claude' | 'json' {
+    const head = content.slice(0, 65536);
+    if (!/^\s*\[\s*\{/.test(head)) return 'json'; // chat exports are arrays of objects
+    // ChatGPT: "mapping" appears early in each element; "current_node" comes
+    // AFTER the (potentially huge) mapping, so confirm it on the full string
+    // (native includes scan — cheap even at 100MB).
+    if (head.includes('"mapping"') && content.includes('"current_node"')) return 'chatgpt';
+    if (head.includes('"chat_messages"')) return 'claude';
+    return 'json';
+}
+
+/**
  * Reject binary content: NUL bytes or a high ratio of control characters in
  * the first 8KB. UTF-16 files contain NULs and are treated as binary in v1.
  */

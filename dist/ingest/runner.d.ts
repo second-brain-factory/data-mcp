@@ -13,6 +13,11 @@ import type { IngestSummary } from './types.js';
 import { type Converter } from './convert.js';
 export declare const MAX_FILES = 200;
 export declare const MAX_FILE_BYTES: number;
+/**
+ * Chat exports (issue #18): a heavy user's conversations.json easily
+ * exceeds 10MB, so files with that exact name get a dedicated cap.
+ */
+export declare const CHAT_EXPORT_MAX_BYTES: number;
 export interface IngestOptions {
     /** File or directory to ingest (absolute or cwd-relative) */
     path: string;

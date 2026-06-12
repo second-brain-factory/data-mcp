@@ -1,0 +1,86 @@
+[
+  {
+    "uuid": "11111111-aaaa-bbbb-cccc-000000000001",
+    "name": "Sourdough starter troubleshooting",
+    "created_at": "2026-03-02T09:15:00.000000Z",
+    "updated_at": "2026-03-02T09:40:00.000000Z",
+    "account": { "uuid": "22222222-aaaa-bbbb-cccc-000000000002" },
+    "chat_messages": [
+      {
+        "uuid": "33333333-aaaa-bbbb-cccc-000000000003",
+        "sender": "human",
+        "text": "My sourdough starter smells like acetone after day 4. Is it dead?",
+        "created_at": "2026-03-02T09:15:10.000000Z",
+        "updated_at": "2026-03-02T09:15:10.000000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "33333333-aaaa-bbbb-cccc-000000000004",
+        "sender": "assistant",
+        "text": "Not dead — the acetone smell means it is hungry. Switch to twice-daily feedings at 1:1:1 and the smell should fade within two days.",
+        "created_at": "2026-03-02T09:15:40.000000Z",
+        "updated_at": "2026-03-02T09:15:40.000000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "33333333-aaaa-bbbb-cccc-000000000005",
+        "sender": "human",
+        "text": "Should I use rye flour for the feedings?",
+        "created_at": "2026-03-02T09:30:00.000000Z",
+        "updated_at": "2026-03-02T09:30:00.000000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "33333333-aaaa-bbbb-cccc-000000000006",
+        "sender": "assistant",
+        "text": "A 20% rye blend speeds recovery because rye carries more wild yeast and amylase.",
+        "created_at": "2026-03-02T09:30:30.000000Z",
+        "updated_at": "2026-03-02T09:30:30.000000Z",
+        "attachments": [],
+        "files": []
+      }
+    ]
+  },
+  {
+    "uuid": "11111111-aaaa-bbbb-cccc-000000000010",
+    "name": "Kubernetes ingress debugging",
+    "created_at": "2026-04-11T14:00:00.000000Z",
+    "updated_at": "2026-04-11T14:20:00.000000Z",
+    "account": { "uuid": "22222222-aaaa-bbbb-cccc-000000000002" },
+    "chat_messages": [
+      {
+        "uuid": "33333333-aaaa-bbbb-cccc-000000000011",
+        "sender": "human",
+        "content": [
+          { "type": "text", "text": "Why does my ingress return 502 only for websocket upgrades?" }
+        ],
+        "created_at": "2026-04-11T14:00:05.000000Z",
+        "updated_at": "2026-04-11T14:00:05.000000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "33333333-aaaa-bbbb-cccc-000000000012",
+        "sender": "assistant",
+        "content": [
+          { "type": "text", "text": "Your nginx ingress is missing the upgrade headers. Add proxy-set-headers with Upgrade and Connection keys, then 502s on websocket upgrades stop." }
+        ],
+        "created_at": "2026-04-11T14:00:45.000000Z",
+        "updated_at": "2026-04-11T14:00:45.000000Z",
+        "attachments": [],
+        "files": []
+      }
+    ]
+  },
+  {
+    "uuid": "11111111-aaaa-bbbb-cccc-000000000020",
+    "name": "Empty draft",
+    "created_at": "2026-05-01T08:00:00.000000Z",
+    "updated_at": "2026-05-01T08:00:00.000000Z",
+    "account": { "uuid": "22222222-aaaa-bbbb-cccc-000000000002" },
+    "chat_messages": []
+  }
+]

@@ -35,7 +35,7 @@ Capabilities by tool prefix:
 - session_* — log a work session's summary, decisions, and next steps. Use at the end of significant work; list past sessions via record_query.
 - handoff_* — pass work between team members with full investigation context (what was tried, assumptions, what to re-verify). Use handoff_list with to_member "me" to see work waiting for you.
 - brain_* — stats and staleness decay reports for the whole brain.
-- ingest — bulk-import local files/directories (markdown, text, csv, json, html; plus pdf, docx, xlsx, pptx when markitdown is installed) into knowledge records. Use when the user wants to import, load, or migrate existing notes, documents, or exports. Dry-run preview by default.
+- ingest — bulk-import local files/directories (markdown, text, csv, json, html; pdf/docx/xlsx/pptx with markitdown; ChatGPT/Claude chat exports auto-detected) into knowledge records. Use when the user wants to import, load, or migrate existing notes, documents, or conversation history. Dry-run preview by default.
 - setup_* — database status, migration report, seeding. Use setup_status when data tools fail.
 
 Conventions: search with knowledge_recall before storing to avoid duplicates. In team mode, writes default to private; pass owner_scope "shared" for the team. Handoffs default to shared.`;
