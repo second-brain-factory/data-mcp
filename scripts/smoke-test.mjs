@@ -14,14 +14,14 @@
  * performs an MCP initialize + tools/list over stdio, and asserts:
  *   - server responds to initialize
  *   - serverInfo.version matches package.json version
- *   - exactly 21 tools are registered
+ *   - exactly 22 tools are registered
  */
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const EXPECTED_TOOL_COUNT = 21;
+const EXPECTED_TOOL_COUNT = 22;
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const root = mkdtempSync(join(tmpdir(), 'data-mcp-smoke-'));

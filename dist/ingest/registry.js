@@ -1,0 +1,21 @@
+/**
+ * Parser registry — single source of truth mapping format id -> parser.
+ *
+ * To add a format: write a pure parser in parsers/, add the extension to
+ * detect.ts EXTENSION_MAP, and register it here. Mirrors the pattern of
+ * src/tools/records/registry.ts.
+ */
+import { parseMarkdown } from './parsers/markdown.js';
+import { parseText } from './parsers/text.js';
+import { parseCsv } from './parsers/csv.js';
+import { parseJson } from './parsers/json.js';
+import { parseHtml } from './parsers/html.js';
+export const PARSER_REGISTRY = {
+    markdown: parseMarkdown,
+    text: parseText,
+    csv: parseCsv,
+    json: parseJson,
+    html: parseHtml,
+};
+export const SUPPORTED_FORMATS = Object.keys(PARSER_REGISTRY);
+//# sourceMappingURL=registry.js.map

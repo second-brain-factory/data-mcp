@@ -134,6 +134,10 @@ sessions, goals, tasks, contacts, knowledge_links, handoffs):
   `RECORD_NOT_FOUND` — existence is not leaked.
 - Unscoped collections (settings, prospects, blog_posts, queues, ...) are
   team-global: everyone sees everything.
+- Bulk-importing existing notes with the `ingest` tool follows the same
+  rules: imports default to your private scope; pass `owner_scope: "shared"`
+  to import into team memory. Re-running the same import never duplicates
+  records.
 
 ### Handoff packets (passing work between members)
 

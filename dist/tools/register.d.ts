@@ -1,5 +1,5 @@
 /**
- * Tool registration — imports and calls all 21 register functions.
+ * Tool registration — imports and calls all 22 register functions.
  *
  * Issue #13 consolidated 27 thin CRUD tools into the 4 generic record_*
  * tools (see src/tools/records/registry.ts). Behavior-rich tools keep

@@ -20,7 +20,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import type { DataAdapter } from '../src/adapter/types.js';
 
-const EXPECTED_TOOL_COUNT = 21;
+const EXPECTED_TOOL_COUNT = 22;
 
 /** Hot-path tools that must stay loaded under tool search. */
 const ALWAYS_LOAD_TOOLS = [
@@ -41,6 +41,7 @@ const PREFIX_GROUPS = [
     'brain_',
     'link_',
     'setup_',
+    'ingest',
 ];
 
 function makeNoopAdapter(): DataAdapter {
