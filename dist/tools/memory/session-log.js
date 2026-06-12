@@ -6,26 +6,31 @@
 import { z } from 'zod';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 export function registerSessionLog(server, adapter) {
-    server.tool('session_log', 'Log a completed work session. Records what was done, skills used, files changed, and decisions made.', {
-        title: z.string().min(1).max(500).describe('Session title'),
-        summary: z.string().min(1).max(10000).describe('Summary of what was accomplished'),
-        skills_used: z.array(z.string().max(100)).optional().describe('Skills/tools used during the session'),
-        files_changed: z.array(z.string().max(500)).optional().describe('Files that were created or modified'),
-        decisions_made: z.array(z.object({
-            title: z.string().max(500),
-            chosen: z.string().max(500),
-        })).optional().describe('Decisions made during the session'),
-        duration_minutes: z.number().int().min(0).optional().describe('Duration of the session in minutes'),
-        task_id: z.string().max(100).optional().describe('Related task ID'),
-        branch: z.string().max(200).optional().describe('Git branch name'),
-        patterns_learned: z.array(z.object({
-            pattern: z.string().max(500),
-            domain: z.string().max(200),
-        })).optional().describe('Patterns learned during the session'),
-        knowledge_created: z.number().int().min(0).optional().describe('Number of knowledge items created'),
-        knowledge_updated: z.number().int().min(0).optional().describe('Number of knowledge items updated'),
-        owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
-        metadata: z.record(z.unknown()).optional().describe('Additional metadata'),
+    server.registerTool('session_log', {
+        description: 'Log a completed work session. Records what was done, skills used, files changed, and decisions made.',
+        inputSchema: {
+            title: z.string().min(1).max(500).describe('Session title'),
+            summary: z.string().min(1).max(10000).describe('Summary of what was accomplished'),
+            skills_used: z.array(z.string().max(100)).optional().describe('Skills/tools used during the session'),
+            files_changed: z.array(z.string().max(500)).optional().describe('Files that were created or modified'),
+            decisions_made: z.array(z.object({
+                title: z.string().max(500),
+                chosen: z.string().max(500),
+            })).optional().describe('Decisions made during the session'),
+            duration_minutes: z.number().int().min(0).optional().describe('Duration of the session in minutes'),
+            task_id: z.string().max(100).optional().describe('Related task ID'),
+            branch: z.string().max(200).optional().describe('Git branch name'),
+            patterns_learned: z.array(z.object({
+                pattern: z.string().max(500),
+                domain: z.string().max(200),
+            })).optional().describe('Patterns learned during the session'),
+            knowledge_created: z.number().int().min(0).optional().describe('Number of knowledge items created'),
+            knowledge_updated: z.number().int().min(0).optional().describe('Number of knowledge items updated'),
+            owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
+            metadata: z.record(z.unknown()).optional().describe('Additional metadata'),
+        },
+        // Hot-path tool: keep loaded under client-side tool search.
+        _meta: { 'anthropic/alwaysLoad': true },
     }, withGracefulDegradation('sessions', adapter, async (params) => {
         try {
             const record = await adapter.create('sessions', {

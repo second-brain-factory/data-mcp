@@ -9,7 +9,9 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { DataAdapter } from '../../adapter/types.js';
 import { makeToolResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 export function registerSessionLog(server: McpServer, adapter: DataAdapter): void {
-    server.tool('session_log', 'Log a completed work session. Records what was done, skills used, files changed, and decisions made.', {
+    server.registerTool('session_log', {
+        description: 'Log a completed work session. Records what was done, skills used, files changed, and decisions made.',
+        inputSchema: {
         title: z.string().min(1).max(500).describe('Session title'),
         summary: z.string().min(1).max(10000).describe('Summary of what was accomplished'),
         skills_used: z.array(z.string().max(100)).optional().describe('Skills/tools used during the session'),
@@ -29,6 +31,9 @@ export function registerSessionLog(server: McpServer, adapter: DataAdapter): voi
         knowledge_updated: z.number().int().min(0).optional().describe('Number of knowledge items updated'),
         owner_scope: z.enum(['private', 'shared']).optional().describe('Store privately for this user or in shared team memory'),
         metadata: z.record(z.unknown()).optional().describe('Additional metadata'),
+        },
+        // Hot-path tool: keep loaded under client-side tool search.
+        _meta: { 'anthropic/alwaysLoad': true },
     }, withGracefulDegradation('sessions', adapter, async (params) => {
         try {
             const record = await adapter.create('sessions', {

@@ -163,6 +163,21 @@ Exact-match queries are unaffected; fallback responses include
   `prospect_search`, `blog_create`, `blog_update`, `blog_list`,
   `blog_delete`, `email_queue_add`, `content_queue_add`, `content_queue_list`
 
+### Tool search / deferred loading
+
+Clients that defer MCP tool definitions (Claude Code MCP Tool Search, the
+Anthropic API's `defer_loading`) discover this server via its `instructions`
+text and keep only `_meta`-marked tools preloaded. The server is set up for
+this:
+
+- `instructions` describe every capability by tool-name prefix
+  (`knowledge_*`, `handoff_*`, ...) and stay under the 2KB client truncation
+  limit — guarded by `tests/tool-search-surface.test.ts`.
+- Hot-path tools (`knowledge_recall`, `knowledge_store`, `knowledge_learn`,
+  `session_log`, `task_list`) set `_meta["anthropic/alwaysLoad"]: true` so
+  they remain available without a search round-trip. Other clients ignore
+  the annotation (it's additive metadata).
+
 ## Development
 
 ```bash

@@ -18,28 +18,28 @@ const PACKAGE_VERSION: string = (() => {
         return '0.0.0';
     }
 })();
-const SERVER_INSTRUCTIONS = `You are the user's AI Second Brain data layer. This MCP server provides tools to store, search, and manage knowledge, decisions, goals, tasks, contacts, and business data.
+/**
+ * Server instructions — load-bearing under client-side tool search (Claude
+ * Code MCP Tool Search, API defer_loading): when tool definitions are
+ * deferred, THIS text is how the model decides whether to search this
+ * server for a tool. Rules: key terms first, capability categories with
+ * activation phrases, tool-name PREFIXES not exhaustive inventories (lists
+ * go stale — this one listed 41 tools after we shipped 44), under 2KB
+ * (Claude Code truncates beyond that).
+ */
+const SERVER_INSTRUCTIONS = `Second Brain memory and data layer: persistent knowledge, decisions, work sessions, team handoffs, goals, tasks, contacts, and CRM/content pipelines. Search here whenever the user wants to remember, recall, save, learn, decide, log work, hand off work, or manage their pipeline.
 
-## Core Capabilities
-- **Knowledge**: knowledge_store, knowledge_recall, knowledge_learn, knowledge_decide, knowledge_validate, knowledge_update, knowledge_delete, knowledge_list
-- **Sessions**: session_log, session_list — log and review work sessions
-- **Goals**: goal_create, goal_update, goal_list — track goals with key results
-- **Tasks**: task_create, task_update, task_list — manage tasks with priorities
-- **Contacts**: contact_create, contact_update, contact_list, contact_search — contact management
-- **Brain Health**: brain_stats, brain_decay — monitor knowledge freshness
-- **Setup**: setup_status, setup_migrate, setup_seed — database management
+Capabilities by tool prefix:
+- knowledge_* / link_* — store, recall (search), learn insights, record decisions, validate freshness, link related items into a graph. Use BEFORE answering questions about past work or stored context, and to save anything worth remembering.
+- session_* — log a work session's summary, decisions, and next steps; review past sessions. Use at the end of significant work.
+- handoff_* — pass work between team members with full investigation context (what was tried, assumptions, what to re-verify). Use handoff_list with to_member "me" to see work waiting for you.
+- goal_* / task_* — goals with key results; tasks with status and priority.
+- contact_* / prospect_* — people and CRM pipeline (create, update, search).
+- blog_* / email_queue_* / content_queue_* — content drafts, outbound email queue (no sending), content calendar.
+- brain_* — stats and staleness decay reports for the whole brain.
+- setup_* — database status, migration report, seeding. Use setup_status when data tools fail.
 
-## Business Tools (if available)
-- **Prospects**: prospect_create, prospect_update, prospect_list, prospect_search — CRM pipeline
-- **Blog**: blog_create, blog_update, blog_list, blog_delete — content management
-- **Email**: email_queue_add — queue emails (no sending)
-- **Content**: content_queue_add, content_queue_list — content calendar
-
-## Best Practices
-- Use knowledge_recall to search before storing to avoid duplicates
-- Use brain_decay periodically to find stale knowledge
-- Use knowledge_validate to refresh items you've reviewed
-- Use setup_status to check database readiness`;
+Conventions: search with knowledge_recall before storing to avoid duplicates. In team mode, writes default to private; pass owner_scope "shared" for the team. Handoffs default to shared.`;
 export function createServer(adapter: DataAdapter): McpServer {
     const server = new McpServer({
         name: '@second-brain/data-mcp',
