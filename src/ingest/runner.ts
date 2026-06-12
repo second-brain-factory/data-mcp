@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { join, resolve, sep, basename, extname } from 'node:path';
 import type { DataAdapter, FilterClause } from '../adapter/types.js';
 import type { IngestItem, FileReport, FileStatus, IngestSummary } from './types.js';
-import { detectFormat, detectConvertedFormat, looksBinary, stripBom } from './detect.js';
+import { detectFormat, detectConvertedFormat, refineJsonFormat, looksBinary, stripBom } from './detect.js';
 import { PARSER_REGISTRY } from './registry.js';
 import { parseOffice } from './parsers/office.js';
 import { createConverter, sanitizeConverted, INSTALL_HINT, type Converter } from './convert.js';
@@ -22,6 +22,12 @@ import { generateSummary } from '../tools/shared.js';
 
 export const MAX_FILES = 200;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
+
+/**
+ * Chat exports (issue #18): a heavy user's conversations.json easily
+ * exceeds 10MB, so files with that exact name get a dedicated cap.
+ */
+export const CHAT_EXPORT_MAX_BYTES = 200 * 1024 * 1024; // 200MB
 
 const SKIP_DIRS = new Set(['node_modules', '__pycache__', 'dist', '.git']);
 
@@ -206,7 +212,8 @@ async function processFile(
     const report: FileReport = { path: filePath, format: null, status: 'error', records: 0, duplicates: 0 };
     try {
         const stat = await fs.stat(filePath);
-        if (stat.size > MAX_FILE_BYTES) {
+        const sizeCap = basename(filePath) === 'conversations.json' ? CHAT_EXPORT_MAX_BYTES : MAX_FILE_BYTES;
+        if (stat.size > sizeCap) {
             report.status = 'skipped_too_large';
             return report;
         }
@@ -232,7 +239,11 @@ async function processFile(
             report.status = 'skipped_empty';
             return report;
         }
-        const parser = PARSER_REGISTRY[format];
+        // Chat-export refinement (issue #18): both ChatGPT and Claude ship a
+        // conversations.json — shape, not extension, picks the parser.
+        const effectiveFormat = format === 'json' ? refineJsonFormat(content) : format;
+        report.format = effectiveFormat;
+        const parser = PARSER_REGISTRY[effectiveFormat];
         const ctx = { filePath, baseName: basename(filePath, extname(filePath)) };
         const items = parser(content, ctx);
         if (items.length === 0) {
@@ -242,7 +253,7 @@ async function processFile(
         const outcome: ItemOutcome = { created: 0, duplicates: 0, changed: 0 };
         for (const item of items) {
             const hash = contentHash(item.content);
-            await writeItem(adapter, item, hash, format, filePath, opts, seenTitles, outcome);
+            await writeItem(adapter, item, hash, effectiveFormat, filePath, opts, seenTitles, outcome);
         }
         report.records = outcome.created;
         report.duplicates = outcome.duplicates;

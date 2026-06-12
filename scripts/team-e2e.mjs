@@ -28,6 +28,9 @@
  * 10. Ingest (issue #16): dry-run previews without writing, real run makes
  *     fixture content recallable, re-ingest creates zero duplicates,
  *     brain-root ingestion refused
+ * 11. LLM chat exports (issue #18): ChatGPT + Claude conversations.json
+ *     ingest by shape detection, conversations recallable by topic,
+ *     regenerated branches excluded, re-ingest idempotent
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -282,6 +285,23 @@ check('ingesting the brain root is refused', JSON.stringify(brainRoot).includes(
 
 const badPath = await call(alice, 'ingest', { path: join(ROOT, '..', 'nope-does-not-exist-e2e') });
 check('nonexistent path returns clean error', JSON.stringify(badPath).includes('Path not found'), JSON.stringify(badPath).slice(0, 200));
+
+// --- 11. LLM chat exports (issue #18) ---
+console.log('\n[11] LLM chat exports');
+const LLM_FIXTURES = join(REPO_ROOT, 'tests', 'fixtures', 'ingest-llm');
+
+const llmRun = await call(alice, 'ingest', { path: LLM_FIXTURES, dry_run: false });
+check('chat exports ingest with zero errors', (llmRun.files_errored ?? -1) === 0 && (llmRun.records_created ?? 0) >= 5, JSON.stringify(llmRun).slice(0, 400));
+
+const topicRecall = await call(alice, 'knowledge_recall', { query: 'sourdough starter' });
+check('claude conversation recallable by topic', (topicRecall.total ?? 0) > 0 && JSON.stringify(topicRecall).includes('Sourdough'), JSON.stringify(topicRecall).slice(0, 300));
+
+const gptRecall = await call(alice, 'knowledge_recall', { query: 'pasta dough hydration' });
+const gptText = JSON.stringify(gptRecall);
+check('chatgpt conversation recallable by topic, canonical path only', (gptRecall.total ?? 0) > 0 && !gptText.includes('REGENERATED-AWAY'), gptText.slice(0, 300));
+
+const llmRerun = await call(alice, 'ingest', { path: LLM_FIXTURES, dry_run: false });
+check('chat export re-ingest is idempotent', (llmRerun.records_created ?? -1) === 0 && (llmRerun.records_deduplicated ?? 0) > 0, JSON.stringify(llmRerun).slice(0, 300));
 
 // --- summary ---
 console.log(`\n${'='.repeat(50)}\nRESULT: ${pass} passed, ${fail} failed`);
