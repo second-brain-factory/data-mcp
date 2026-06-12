@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url';
 import type { DataAdapter, Filter, ListResult } from '../src/adapter/types.js';
 import { parseEnex } from '../src/ingest/parsers/enex.js';
 import { parseKeep } from '../src/ingest/parsers/keep.js';
-import { detectFormat, refineJsonFormat } from '../src/ingest/detect.js';
+import { parseNotionMd, parseNotionDb, stripNotionId, stripNotionLinks } from '../src/ingest/parsers/notion.js';
+import { detectFormat, refineJsonFormat, refinePathFormat } from '../src/ingest/detect.js';
 import { runIngest } from '../src/ingest/runner.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ingest-workspace');
@@ -153,5 +154,110 @@ describe('runIngest workspace Slice 1 (AC1, AC7)', () => {
         const again = await runIngest(adapter, { path: join(FIXTURES, 'notes.enex'), dryRun: false });
         expect(again.records_created).toBe(0);
         expect(again.records_deduplicated).toBe(3);
+    });
+});
+
+describe('refinePathFormat (Notion detection)', () => {
+    it.each([
+        ['Roadmap b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6.md', 'notion'],
+        ['Tasks c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6.csv', 'notion-db'],
+        ['Tasks c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6_all.csv', 'notion-db-all'],
+        ['plain-notes.md', null],
+        ['data.csv', null],
+        ['Roadmap b1c2.md', null], // too-short hex is not a Notion ID
+    ])('%s -> %s', (name, expected) => {
+        expect(refinePathFormat(name)).toBe(expected);
+    });
+});
+
+describe('parseNotionMd (AC2)', () => {
+    const notionCtx = {
+        filePath: '/tmp/x/Roadmap b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6.md',
+        baseName: 'Roadmap b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6',
+        relPath: 'Projects a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6/Roadmap b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6.md',
+    };
+
+    it('strips the ID suffix from the title and folder tags', () => {
+        const items = parseNotionMd('# Roadmap\n\nShip it.', notionCtx);
+        expect(items).toHaveLength(1);
+        expect(items[0].title).toBe('Roadmap');
+        expect(items[0].tags).toEqual(['notion', 'projects']);
+    });
+
+    it('strips ID suffixes from link text AND targets', () => {
+        const body = 'See [Launch checklist 9f8e7d6c5b4a39281706f5e4d3c2b1a0](Launch%20checklist%209f8e7d6c5b4a39281706f5e4d3c2b1a0.md).';
+        const items = parseNotionMd(body, notionCtx);
+        expect(items[0].content).toContain('[Launch checklist](Launch%20checklist.md)');
+        expect(items[0].content).not.toMatch(/[0-9a-f]{32}/);
+    });
+
+    it('works without relPath (single file outside an export dir)', () => {
+        const items = parseNotionMd('content', { filePath: notionCtx.filePath, baseName: notionCtx.baseName });
+        expect(items[0].title).toBe('Roadmap');
+        expect(items[0].tags).toEqual(['notion']);
+    });
+
+    it('stripNotionId keeps names that are only an ID', () => {
+        expect(stripNotionId('Roadmap b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6')).toBe('Roadmap');
+        expect(stripNotionId('plain name')).toBe('plain name');
+    });
+
+    it('stripNotionLinks leaves non-Notion links alone', () => {
+        const s = 'A [normal link](https://example.com/page) here.';
+        expect(stripNotionLinks(s)).toBe(s);
+    });
+});
+
+describe('parseNotionDb (AC2)', () => {
+    const dbCtx = {
+        filePath: '/tmp/x/Tasks c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6.csv',
+        baseName: 'Tasks c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6',
+    };
+
+    it('one labeled record per row, titled by first column', () => {
+        const csv = 'Name,Status,Notes\nWrite landing page,Done,Copy reviewed\nSet up analytics,In progress,\n';
+        const items = parseNotionDb(csv, dbCtx);
+        expect(items).toHaveLength(2);
+        expect(items[0].title).toBe('Tasks — Write landing page');
+        expect(items[0].content).toBe('Name: Write landing page\nStatus: Done\nNotes: Copy reviewed');
+        expect(items[0].tags).toEqual(['notion', 'database', 'tasks']);
+        expect(items[1].content).not.toContain('Notes:'); // empty cells omitted
+    });
+
+    it('empty first column falls back to Row N title', () => {
+        const csv = 'Name,Status\n,Done\n';
+        const items = parseNotionDb(csv, dbCtx);
+        expect(items[0].title).toBe('Tasks — Row 1');
+    });
+});
+
+describe('runIngest Notion export (AC1, AC2)', () => {
+    it('ingests pages + DB rows; _all.csv duplicate skipped', async () => {
+        const { adapter, records } = makeMemoryAdapter();
+        const summary = await runIngest(adapter, { path: join(FIXTURES, 'notion'), dryRun: false });
+        expect(summary.files_scanned).toBe(3);
+        expect(summary.files_errored).toBe(0);
+        expect(summary.records_created).toBe(4); // 1 page + 3 db rows
+
+        const page = records.find((r) => r.title === 'Roadmap')!;
+        expect(page.source).toBe('ingest:notion');
+        expect(page.tags).toEqual(['notion', 'projects']);
+        expect(page.content as string).toContain('[Launch checklist](Launch%20checklist.md)');
+        expect(page.content as string).not.toMatch(/[0-9a-f]{32}/);
+
+        const row = records.find((r) => r.title === 'Tasks — Write landing page')!;
+        expect(row.source).toBe('ingest:notion-db');
+
+        expect(records.some((r) => (r.content as string).includes('ALL-CSV-DUPLICATE-MARKER'))).toBe(false);
+        const allCsvReport = summary.reports.find((r) => r.path.endsWith('_all.csv'))!;
+        expect(allCsvReport.status).toBe('skipped_duplicate');
+    });
+
+    it('re-ingest dedupes (AC7)', async () => {
+        const { adapter } = makeMemoryAdapter();
+        await runIngest(adapter, { path: join(FIXTURES, 'notion'), dryRun: false });
+        const again = await runIngest(adapter, { path: join(FIXTURES, 'notion'), dryRun: false });
+        expect(again.records_created).toBe(0);
+        expect(again.records_deduplicated).toBe(4);
     });
 });

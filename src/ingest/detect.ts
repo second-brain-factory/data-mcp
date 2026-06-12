@@ -70,6 +70,20 @@ export function refineJsonFormat(content: string): 'chatgpt' | 'claude' | 'keep'
 }
 
 /**
+ * Refine by filename pattern (issue #19): Notion exports name every page
+ * and database `<name> <32-hex-id>.(md|csv)`. Pattern-only, so a single
+ * Notion file ingested outside its export directory still gets clean
+ * titles. `<name> <32-hex>_all.csv` is the unfiltered duplicate Notion
+ * emits next to view CSVs — flagged so the runner can skip it.
+ */
+export function refinePathFormat(fileName: string): 'notion' | 'notion-db' | 'notion-db-all' | null {
+    if (/ [0-9a-f]{32}\.md$/i.test(fileName)) return 'notion';
+    if (/ [0-9a-f]{32}_all\.csv$/i.test(fileName)) return 'notion-db-all';
+    if (/ [0-9a-f]{32}\.csv$/i.test(fileName)) return 'notion-db';
+    return null;
+}
+
+/**
  * Reject binary content: NUL bytes or a high ratio of control characters in
  * the first 8KB. UTF-16 files contain NULs and are treated as binary in v1.
  */

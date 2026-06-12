@@ -10,6 +10,8 @@ export interface IngestContext {
     filePath: string;
     /** Basename without extension — default title stem */
     baseName: string;
+    /** Ingest-root-relative path with '/' separators (issue #19; set by runner) */
+    relPath?: string;
 }
 
 export interface IngestItem {

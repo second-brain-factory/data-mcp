@@ -16,6 +16,7 @@ import { parseChatGpt } from './parsers/chatgpt.js';
 import { parseClaude } from './parsers/claude.js';
 import { parseEnex } from './parsers/enex.js';
 import { parseKeep } from './parsers/keep.js';
+import { parseNotionMd, parseNotionDb } from './parsers/notion.js';
 
 /** Extension-detected formats — drives the advertised extension list. */
 const BASE_PARSERS: Record<string, Parser> = {
@@ -37,6 +38,8 @@ const REFINED_PARSERS: Record<string, Parser> = {
     chatgpt: parseChatGpt,
     claude: parseClaude,
     keep: parseKeep,
+    notion: parseNotionMd,
+    'notion-db': parseNotionDb,
 };
 
 export const PARSER_REGISTRY: Record<string, Parser> = {

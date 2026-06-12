@@ -11,10 +11,10 @@
 
 import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, resolve, sep, basename, extname } from 'node:path';
+import { join, resolve, sep, basename, extname, relative } from 'node:path';
 import type { DataAdapter, FilterClause } from '../adapter/types.js';
-import type { IngestItem, FileReport, FileStatus, IngestSummary } from './types.js';
-import { detectFormat, detectConvertedFormat, refineJsonFormat, looksBinary, stripBom } from './detect.js';
+import type { IngestItem, IngestContext, FileReport, FileStatus, IngestSummary } from './types.js';
+import { detectFormat, detectConvertedFormat, refineJsonFormat, refinePathFormat, looksBinary, stripBom } from './detect.js';
 import { PARSER_REGISTRY } from './registry.js';
 import { parseOffice } from './parsers/office.js';
 import { createConverter, sanitizeConverted, INSTALL_HINT, type Converter } from './convert.js';
@@ -205,6 +205,7 @@ async function processConvertedFile(
 async function processFile(
     adapter: DataAdapter,
     filePath: string,
+    root: string,
     opts: IngestOptions,
     seenTitles: Set<string>,
     converter: Converter,
@@ -227,6 +228,15 @@ async function processFile(
             report.status = 'skipped_unsupported';
             return report;
         }
+        // Notion path refinement (issue #19): `<name> <32-hex>.(md|csv)` —
+        // pattern, not directory context, so single files refine too. The
+        // `_all.csv` duplicate Notion emits next to view CSVs is skipped.
+        const pathFormat = refinePathFormat(basename(filePath));
+        if (pathFormat === 'notion-db-all') {
+            report.status = 'skipped_duplicate';
+            report.format = 'notion-db';
+            return report;
+        }
         const buffer = await fs.readFile(filePath);
         if (looksBinary(buffer.subarray(0, 8192))) {
             report.status = 'skipped_unsupported';
@@ -239,12 +249,13 @@ async function processFile(
             report.status = 'skipped_empty';
             return report;
         }
-        // Chat-export refinement (issue #18): both ChatGPT and Claude ship a
-        // conversations.json — shape, not extension, picks the parser.
-        const effectiveFormat = format === 'json' ? refineJsonFormat(content) : format;
+        // Chat-export/Keep refinement (issues #18/#19): shape, not
+        // extension, picks the parser for .json files.
+        const effectiveFormat = pathFormat ?? (format === 'json' ? refineJsonFormat(content) : format);
         report.format = effectiveFormat;
         const parser = PARSER_REGISTRY[effectiveFormat];
-        const ctx = { filePath, baseName: basename(filePath, extname(filePath)) };
+        const relPath = relative(root, filePath).split(sep).join('/');
+        const ctx: IngestContext = { filePath, baseName: basename(filePath, extname(filePath)), relPath };
         const items = parser(content, ctx);
         if (items.length === 0) {
             report.status = 'skipped_empty';
@@ -285,7 +296,7 @@ export async function runIngest(adapter: DataAdapter, opts: IngestOptions): Prom
     const seenTitles = new Set<string>();
     const reports: FileReport[] = [];
     for (const file of files) {
-        reports.push(await processFile(adapter, file, opts, seenTitles, converter));
+        reports.push(await processFile(adapter, file, target, opts, seenTitles, converter));
     }
 
     const count = (statuses: FileStatus[]) => reports.filter((r) => statuses.includes(r.status)).length;
