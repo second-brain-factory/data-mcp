@@ -32,3 +32,22 @@ jobs:
           SB_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           SB_SUPABASE_KEY: ${{ secrets.E2E_SUPABASE_KEY }}
         run: node scripts/team-e2e-supabase.mjs
+
+  office-ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Install markitdown
+        run: pip install 'markitdown[all]'
+      - name: Build
+        run: npm run build
+      - name: Office ingest E2E (real markitdown — AC1/AC6/AC9)
+        run: node scripts/ingest-office-e2e.mjs

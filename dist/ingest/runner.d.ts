@@ -10,6 +10,7 @@
  */
 import type { DataAdapter } from '../adapter/types.js';
 import type { IngestSummary } from './types.js';
+import { type Converter } from './convert.js';
 export declare const MAX_FILES = 200;
 export declare const MAX_FILE_BYTES: number;
 export interface IngestOptions {
@@ -21,6 +22,8 @@ export interface IngestOptions {
     ownerScope?: 'private' | 'shared';
     /** Paths the runner must refuse to ingest (e.g. markdown adapter root) */
     forbiddenRoots?: string[];
+    /** Office-document converter (injectable for tests; default markitdown sidecar) */
+    converter?: Converter;
 }
 /** sha256 of normalized (trimmed) content */
 export declare function contentHash(content: string): string;

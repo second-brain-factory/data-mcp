@@ -38,7 +38,7 @@ function parseFrontmatter(content) {
     return { tags: [...new Set(tags)], title, body };
 }
 /** Split markdown body into sections at H1/H2 headings. */
-function splitSections(body) {
+export function splitSections(body) {
     const lines = body.split('\n');
     const sections = [];
     let heading = null;

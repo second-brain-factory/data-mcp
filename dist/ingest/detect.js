@@ -12,9 +12,29 @@ const EXTENSION_MAP = {
     '.html': 'html',
     '.htm': 'html',
 };
+/**
+ * Office/document formats requiring conversion (issue #17). Values are the
+ * format id passed to the office parser. Advertised: pdf/docx/xlsx/pptx.
+ * Legacy/extra (epub/doc/xls/ppt) are best-effort pass-through — handled,
+ * never advertised.
+ */
+const CONVERTED_EXTENSION_MAP = {
+    '.pdf': 'pdf',
+    '.docx': 'docx',
+    '.xlsx': 'xlsx',
+    '.pptx': 'pptx',
+    '.epub': 'epub',
+    '.doc': 'doc',
+    '.xls': 'xls',
+    '.ppt': 'ppt',
+};
 /** Map a file path to a format id, or null when unsupported. */
 export function detectFormat(filePath) {
     return EXTENSION_MAP[extname(filePath).toLowerCase()] ?? null;
+}
+/** Map a file path to a converted (office) format id, or null. */
+export function detectConvertedFormat(filePath) {
+    return CONVERTED_EXTENSION_MAP[extname(filePath).toLowerCase()] ?? null;
 }
 /**
  * Reject binary content: NUL bytes or a high ratio of control characters in

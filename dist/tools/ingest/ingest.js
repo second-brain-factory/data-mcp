@@ -12,10 +12,10 @@
 import { z } from 'zod';
 import { makeToolResponse, makeErrorResponse, handleAdapterError, withGracefulDegradation } from '../shared.js';
 import { runIngest, MAX_FILES } from '../../ingest/runner.js';
-import { SUPPORTED_FORMATS } from '../../ingest/registry.js';
+import { SUPPORTED_FORMATS, CONVERTED_FORMATS } from '../../ingest/registry.js';
 export function registerIngest(server, adapter) {
     server.registerTool('ingest', {
-        description: `Bulk-import local files or directories into knowledge records. Supported formats: ${SUPPORTED_FORMATS.join(', ')} (.md, .txt, .csv, .json, .html). Recurses directories (skips dotfiles, binaries, node_modules; max ${MAX_FILES} files). Defaults to dry_run preview — pass dry_run: false to write. Idempotent: re-ingesting the same files creates no duplicates.`,
+        description: `Bulk-import local files or directories into knowledge records. Supported formats: ${SUPPORTED_FORMATS.join(', ')} (.md, .txt, .csv, .json, .html), plus ${CONVERTED_FORMATS.join(', ')} when markitdown is installed. Recurses directories (skips dotfiles, binaries, node_modules; max ${MAX_FILES} files). Defaults to dry_run preview — pass dry_run: false to write. Idempotent: re-ingesting the same files creates no duplicates.`,
         inputSchema: {
             path: z.string().min(1).max(1000).describe('Absolute path to a file or directory to ingest'),
             dry_run: z.boolean().optional().describe('Preview without writing (default true). Set false to create records.'),
