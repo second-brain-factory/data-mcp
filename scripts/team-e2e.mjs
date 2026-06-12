@@ -29,6 +29,7 @@
  *     fixture content recallable, re-ingest creates zero duplicates,
  *     brain-root ingestion refused
  * 11. LLM chat exports (issue #18): ChatGPT + Claude conversations.json
+ * 12. Workspace exports (issue #19): Notion, Slack, Keep, Evernote ENEX
  *     ingest by shape detection, conversations recallable by topic,
  *     regenerated branches excluded, re-ingest idempotent
  */
@@ -302,6 +303,37 @@ check('chatgpt conversation recallable by topic, canonical path only', (gptRecal
 
 const llmRerun = await call(alice, 'ingest', { path: LLM_FIXTURES, dry_run: false });
 check('chat export re-ingest is idempotent', (llmRerun.records_created ?? -1) === 0 && (llmRerun.records_deduplicated ?? 0) > 0, JSON.stringify(llmRerun).slice(0, 300));
+
+// --- 12. Workspace exports (issue #19) ---
+// Each export is ingested from ITS OWN root (real usage: "point at the
+// export root") — slack context detection requires users.json at the root.
+console.log('\n[12] Workspace exports');
+const WS_FIXTURES = join(REPO_ROOT, 'tests', 'fixtures', 'ingest-workspace');
+
+const notionRun = await call(alice, 'ingest', { path: join(WS_FIXTURES, 'notion'), dry_run: false });
+const slackRun = await call(alice, 'ingest', { path: join(WS_FIXTURES, 'slack'), dry_run: false });
+const keepRun = await call(alice, 'ingest', { path: join(WS_FIXTURES, 'keep'), dry_run: false });
+const enexRun = await call(alice, 'ingest', { path: join(WS_FIXTURES, 'notes.enex'), dry_run: false });
+const wsCreated = ['notion', 'slack', 'keep', 'enex'].map((k, i) => [notionRun, slackRun, keepRun, enexRun][i].records_created ?? 0);
+const wsErrors = [notionRun, slackRun, keepRun, enexRun].reduce((n, r) => n + (r.files_errored ?? 1), 0);
+check('all four workspace exports ingest with zero errors', wsErrors === 0 && wsCreated.reduce((a, b) => a + b, 0) >= 10, JSON.stringify({ wsCreated, wsErrors }));
+
+const notionRecall = await call(alice, 'knowledge_recall', { query: 'Roadmap MVP summer' });
+const notionHit = (notionRecall.results ?? []).find((r) => r.title === 'Roadmap');
+check('notion page recallable with clean title and ID-free content', !!notionHit && !/[0-9a-f]{32}/.test(`${notionHit.title}\n${notionHit.content}`), JSON.stringify(notionHit ?? notionRecall).slice(0, 300));
+
+const slackRecall = await call(alice, 'knowledge_recall', { query: 'staging deploy migration' });
+const slackHit = (slackRecall.results ?? []).find((r) => r.title === '#general 2024-06-12');
+check('slack channel-day recallable with resolved names', !!slackHit && slackHit.content.includes('Marco Rossi') && !slackHit.content.includes('U02BBB222'), JSON.stringify(slackHit ?? slackRecall).slice(0, 300));
+
+const enexRecall = await call(alice, 'knowledge_recall', { query: 'hydration coil folds' });
+check('evernote note recallable with decoded entities', (enexRecall.total ?? 0) > 0 && JSON.stringify(enexRecall).includes('Sourdough hydration experiments'), JSON.stringify(enexRecall).slice(0, 300));
+
+const keepGone = await call(alice, 'knowledge_recall', { query: 'ARCHIVED-NOTE-MARKER' });
+check('archived keep note NOT ingested', !(keepGone.results ?? []).some((r) => `${r.title}\n${r.content}`.includes('ARCHIVED-NOTE-MARKER')), JSON.stringify(keepGone).slice(0, 200));
+
+const wsRerun = await call(alice, 'ingest', { path: join(WS_FIXTURES, 'notion'), dry_run: false });
+check('workspace export re-ingest is idempotent', (wsRerun.records_created ?? -1) === 0 && (wsRerun.records_deduplicated ?? 0) > 0, JSON.stringify(wsRerun).slice(0, 300));
 
 // --- summary ---
 console.log(`\n${'='.repeat(50)}\nRESULT: ${pass} passed, ${fail} failed`);

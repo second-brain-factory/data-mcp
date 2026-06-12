@@ -174,12 +174,24 @@ Exact-match queries are unaffected; fallback responses include
   `metadata.conversation_date`; ChatGPT's branching message graph is walked
   along the canonical path only (regenerated answers excluded), long
   conversations split at message boundaries with `(part n/m)` titles, and
-  `conversations.json` files are accepted up to 200MB. Recurses
-  directories (skips dotfiles, binaries,
+  `conversations.json` files are accepted up to 200MB. **Workspace
+  exports** are auto-detected too (extract the export zip first):
+  *Notion* (Markdown & CSV export) — page-ID suffixes stripped from titles
+  and links, folder paths become tags, database CSVs produce one labeled
+  record per row; *Slack* (workspace export) — one record per channel per
+  day with `@mentions` resolved via `users.json`, thread replies grouped
+  under their parent, and join/leave noise skipped (thread replies whose
+  parent lives in another day render standalone); *Google Keep* (Takeout)
+  — labels become tags, archived/trashed notes skipped (Takeout Docs in
+  `.docx`/`.html` route through the office/HTML paths above); *Evernote*
+  `.enex` — one record per note with tags and dates, no XML dependency.
+  Recurses directories (skips dotfiles, binaries,
   `node_modules`; capped at
-  200 files), splits long documents at section/paragraph boundaries, and
+  200 files — raised to 2000 inside a recognized workspace export), splits
+  long documents at section/paragraph boundaries, and
   dedupes by `(type, title)` with a sha256 content hash stored in record
-  metadata — re-ingesting the same files creates zero duplicates. Defaults
+  metadata — re-ingesting the same files creates zero duplicates (a
+  re-export ingests only new pages/days/notes). Defaults
   to a dry-run preview; pass `dry_run: false` to write. One tool for all
   formats by design (per-format tools would pollute client context).
 - **Setup:** `setup_status`, `setup_migrate`, `setup_bootstrap`, `setup_seed`

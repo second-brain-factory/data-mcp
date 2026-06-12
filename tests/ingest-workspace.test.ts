@@ -374,3 +374,62 @@ describe('runIngest slack export (AC1, AC3, AC6, AC7)', () => {
         expect(single.reports[0].format).toBe('json');
     });
 });
+
+describe('export-context file cap (AC8)', () => {
+    it('a recognized export raises the cap beyond MAX_FILES; capped surfaced honestly', async () => {
+        const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+        const { tmpdir } = await import('node:os');
+        const dir = await mkdtemp(join(tmpdir(), 'ingest-export-cap-'));
+        try {
+            // Synthetic Notion export with 250 pages (> MAX_FILES=200)
+            const hex = (n: number) => n.toString(16).padStart(32, '0');
+            for (let i = 0; i < 250; i++) {
+                await writeFile(join(dir, `Page ${i} ${hex(i)}.md`), `Content of page ${i}.`);
+            }
+            const { adapter } = makeMemoryAdapter();
+            const summary = await runIngest(adapter, { path: dir, dryRun: true });
+            expect(summary.files_scanned).toBe(250); // beyond the plain-dir cap
+            expect(summary.capped).toBe(false);
+            expect(summary.records_created).toBe(250);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    }, 30000);
+
+    it('plain directories keep the MAX_FILES cap', async () => {
+        const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+        const { tmpdir } = await import('node:os');
+        const dir = await mkdtemp(join(tmpdir(), 'ingest-plain-cap-'));
+        try {
+            for (let i = 0; i < 220; i++) {
+                await writeFile(join(dir, `note-${String(i).padStart(3, '0')}.md`), `Note ${i}.`);
+            }
+            const { adapter } = makeMemoryAdapter();
+            const summary = await runIngest(adapter, { path: dir, dryRun: true });
+            expect(summary.files_scanned).toBe(200);
+            expect(summary.capped).toBe(true);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    }, 30000);
+});
+
+describe('Takeout Docs route through existing parsers (PRD scope note)', () => {
+    it('an exported-Doc html file ingests via the Phase-1 html parser', async () => {
+        const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+        const { tmpdir } = await import('node:os');
+        const dir = await mkdtemp(join(tmpdir(), 'ingest-takeout-'));
+        try {
+            await writeFile(join(dir, 'Meeting notes.html'),
+                '<html><head><title>Meeting notes</title></head><body><p>Decided to ship v2 in July.</p></body></html>');
+            const { adapter, records } = makeMemoryAdapter();
+            const summary = await runIngest(adapter, { path: dir, dryRun: false });
+            expect(summary.records_created).toBe(1);
+            expect(records[0].title).toBe('Meeting notes');
+            expect(records[0].source).toBe('ingest:html');
+            expect(records[0].content as string).toContain('ship v2 in July');
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
+});
