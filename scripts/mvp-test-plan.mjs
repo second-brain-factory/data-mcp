@@ -94,7 +94,7 @@ const A = await connect('iwo', CLONE_A);
 const B = await connect('aleksandra', CLONE_B);
 
 const toolsA = (await A.listTools()).tools;
-check('1.3 server exposes 21 tools', toolsA.length === 21, `got ${toolsA.length}`);
+check('1.3 server exposes 22 tools', toolsA.length === 22, `got ${toolsA.length}`);
 const sv = A.getServerVersion();
 check(`1.3b published package reports version ${PKG_VERSION}`, sv?.version === PKG_VERSION, `got ${sv?.version}`);
 

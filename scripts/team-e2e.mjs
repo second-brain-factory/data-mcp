@@ -13,7 +13,7 @@
  *     issue-1260: writes must work immediately after setup_migrate with no
  *     external mkdir) and writes a .gitignore covering _archive/ so
  *     soft-deleted records never reach a shared team repo (0.7.4)
- *  1. Server boots from local build, version matches package.json, 21 tools
+ *  1. Server boots from local build, version matches package.json, 22 tools
  *  2. Private knowledge written by alice is invisible to bob
  *  3. Shared knowledge written by alice is visible to bob
  *  4. owner_scope filter on recall (private vs shared)

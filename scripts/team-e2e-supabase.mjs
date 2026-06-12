@@ -124,7 +124,7 @@ try {
   const sv = alice.getServerVersion();
   check(`server version matches package.json (${PKG_VERSION})`, sv?.version === PKG_VERSION, `got ${sv?.version}`);
   const tools = (await alice.listTools()).tools;
-  check('21 tools registered', tools.length === 21, `got ${tools.length}`);
+  check('22 tools registered', tools.length === 22, `got ${tools.length}`);
   const learnTool = tools.find((t) => t.name === 'knowledge_learn');
   check('knowledge_learn exposes owner_scope param', JSON.stringify(learnTool?.inputSchema ?? {}).includes('owner_scope'));
 
