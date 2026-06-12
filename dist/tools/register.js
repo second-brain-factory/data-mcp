@@ -1,5 +1,5 @@
 /**
- * Tool registration — imports and calls all 21 register functions.
+ * Tool registration — imports and calls all 22 register functions.
  *
  * Issue #13 consolidated 27 thin CRUD tools into the 4 generic record_*
  * tools (see src/tools/records/registry.ts). Behavior-rich tools keep
@@ -24,6 +24,8 @@ import { registerRecordCreate } from './records/record-create.js';
 import { registerRecordUpdate } from './records/record-update.js';
 import { registerRecordQuery } from './records/record-query.js';
 import { registerRecordDelete } from './records/record-delete.js';
+// Ingest tool (1)
+import { registerIngest } from './ingest/ingest.js';
 // Setup tools (4)
 import { registerSetupStatus } from './setup/setup-status.js';
 import { registerSetupMigrate } from './setup/setup-migrate.js';
@@ -49,6 +51,8 @@ export function registerAllTools(server, adapter) {
     registerRecordUpdate(server, adapter);
     registerRecordQuery(server, adapter);
     registerRecordDelete(server, adapter);
+    // Ingest tool
+    registerIngest(server, adapter);
     // Setup tools
     registerSetupStatus(server, adapter);
     registerSetupMigrate(server, adapter);

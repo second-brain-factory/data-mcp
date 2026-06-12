@@ -1,0 +1,5 @@
+{
+  "project": "data-mcp",
+  "phase": 1,
+  "formats": ["markdown", "text", "csv", "json", "html"]
+}

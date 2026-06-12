@@ -1,6 +1,6 @@
 # @iwo-szapar/data-mcp
 
-MCP server for a personal (and team) Second Brain: 21 tools for knowledge,
+MCP server for a personal (and team) Second Brain: 22 tools for knowledge,
 decisions, sessions, goals, tasks, contacts, knowledge links, and business
 collections (prospects, blog, email/content queues) — backed by your choice
 of **markdown files**, **Supabase**, or **PocketBase**.
@@ -147,7 +147,7 @@ Exact-match queries are unaffected; fallback responses include
 `matched_via: "any_term_fallback"`. Other text searches (`record_query` with
 `query` on contacts/prospects/decisions) remain native-search only.
 
-## Tools (21)
+## Tools (22)
 
 - **Knowledge:** `knowledge_store`, `knowledge_recall`, `knowledge_learn`,
   `knowledge_validate`
@@ -160,6 +160,14 @@ Exact-match queries are unaffected; fallback responses include
   and knowledge_links. Pass `collection` plus a `data` payload; invalid
   fields return the expected schema so the model can self-correct.
 - **Brain:** `brain_stats`, `brain_decay`
+- **Ingest:** `ingest` — bulk-import local files or directories into
+  knowledge records. Supports markdown, plain text, CSV, JSON, and HTML.
+  Recurses directories (skips dotfiles, binaries, `node_modules`; capped at
+  200 files), splits long documents at section/paragraph boundaries, and
+  dedupes by `(type, title)` with a sha256 content hash stored in record
+  metadata — re-ingesting the same files creates zero duplicates. Defaults
+  to a dry-run preview; pass `dry_run: false` to write. One tool for all
+  formats by design (per-format tools would pollute client context).
 - **Setup:** `setup_status`, `setup_migrate`, `setup_bootstrap`, `setup_seed`
 
 In 0.9.0, 27 single-collection CRUD tools (goal_*, task_*, contact_*,
@@ -194,7 +202,7 @@ npm run build             # tsc → dist/
 npm test                  # unit tests (vitest)
 npm run test:e2e          # team E2E against local dist/ (markdown backend)
 npm run test:e2e:supabase # team E2E, Supabase backend (needs SB_SUPABASE_URL/KEY; skips otherwise)
-node scripts/smoke-test.mjs    # stdio boot + 21-tool surface check
+node scripts/smoke-test.mjs    # stdio boot + 22-tool surface check
 bash scripts/verify-dist.sh    # dist/ byte-comparability gate
 ```
 

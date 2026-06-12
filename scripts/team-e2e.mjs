@@ -25,6 +25,9 @@
  *  9. Handoff packets (issue #9): alice hands off to bob with evidence
  *     fields, bob lists/accepts/completes, private-to-other rejected,
  *     third-member visibility rules hold
+ * 10. Ingest (issue #16): dry-run previews without writing, real run makes
+ *     fixture content recallable, re-ingest creates zero duplicates,
+ *     brain-root ingestion refused
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -102,7 +105,7 @@ console.log('\n[1] Boot + tool surface');
 const sv = alice.getServerVersion();
 check(`server version matches package.json (${PKG_VERSION})`, sv?.version === PKG_VERSION, `got ${sv?.version}`);
 const tools = (await alice.listTools()).tools;
-check('21 tools registered', tools.length === 21, `got ${tools.length}`);
+check('22 tools registered', tools.length === 22, `got ${tools.length}`);
 const learnTool = tools.find((t) => t.name === 'knowledge_learn');
 check('knowledge_learn exposes owner_scope param', JSON.stringify(learnTool?.inputSchema ?? {}).includes('owner_scope'));
 
@@ -254,6 +257,31 @@ check('private self-handoff allowed', selfNote.created === true, JSON.stringify(
 
 const bobHandoffs = await call(bob, 'handoff_list', {});
 check('bob cannot see alice private self-handoff', !JSON.stringify(bobHandoffs).includes('self-handoff note'), JSON.stringify(bobHandoffs).slice(0, 300));
+
+// --- 10. Ingest (issue #16) ---
+console.log('\n[10] Ingest');
+const FIXTURES = join(REPO_ROOT, 'tests', 'fixtures', 'ingest');
+
+const dryRun = await call(alice, 'ingest', { path: FIXTURES });
+check('ingest defaults to dry_run preview', dryRun.dry_run === true && (dryRun.records_created ?? 0) > 0, JSON.stringify(dryRun).slice(0, 300));
+
+const dryRecall = await call(alice, 'knowledge_recall', { query: 'Onboarding Guide' });
+check('dry_run writes nothing', (dryRecall.total ?? -1) === 0, JSON.stringify(dryRecall).slice(0, 300));
+
+const realRun = await call(alice, 'ingest', { path: FIXTURES, dry_run: false });
+check('ingest writes records', realRun.dry_run === false && (realRun.records_created ?? 0) > 0 && (realRun.files_errored ?? -1) === 0, JSON.stringify(realRun).slice(0, 300));
+
+const ingested = await call(alice, 'knowledge_recall', { query: 'Onboarding Guide' });
+check('ingested markdown recallable via knowledge_recall', JSON.stringify(ingested).includes('Onboarding Guide'), JSON.stringify(ingested).slice(0, 300));
+
+const rerun = await call(alice, 'ingest', { path: FIXTURES, dry_run: false });
+check('re-ingest is idempotent (zero new records)', (rerun.records_created ?? -1) === 0 && (rerun.records_deduplicated ?? 0) > 0, JSON.stringify(rerun).slice(0, 300));
+
+const brainRoot = await call(alice, 'ingest', { path: ROOT, dry_run: false });
+check('ingesting the brain root is refused', JSON.stringify(brainRoot).includes('Refusing to ingest'), JSON.stringify(brainRoot).slice(0, 300));
+
+const badPath = await call(alice, 'ingest', { path: join(ROOT, '..', 'nope-does-not-exist-e2e') });
+check('nonexistent path returns clean error', JSON.stringify(badPath).includes('Path not found'), JSON.stringify(badPath).slice(0, 200));
 
 // --- summary ---
 console.log(`\n${'='.repeat(50)}\nRESULT: ${pass} passed, ${fail} failed`);
