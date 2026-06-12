@@ -43,7 +43,7 @@ function parseFrontmatter(content: string): Frontmatter {
 }
 
 /** Split markdown body into sections at H1/H2 headings. */
-function splitSections(body: string): Array<{ heading: string | null; text: string }> {
+export function splitSections(body: string): Array<{ heading: string | null; text: string }> {
     const lines = body.split('\n');
     const sections: Array<{ heading: string | null; text: string }> = [];
     let heading: string | null = null;

@@ -11,8 +11,10 @@
 import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, resolve, sep, basename, extname } from 'node:path';
-import { detectFormat, looksBinary, stripBom } from './detect.js';
+import { detectFormat, detectConvertedFormat, looksBinary, stripBom } from './detect.js';
 import { PARSER_REGISTRY } from './registry.js';
+import { parseOffice } from './parsers/office.js';
+import { createConverter, sanitizeConverted, INSTALL_HINT } from './convert.js';
 import { generateSummary } from '../tools/shared.js';
 export const MAX_FILES = 200;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -113,13 +115,55 @@ async function writeItem(adapter, item, hash, format, sourcePath, opts, seenTitl
     }
     outcome.created++;
 }
-async function processFile(adapter, filePath, opts, seenTitles) {
+/**
+ * Office documents (issue #17): convert via the markitdown sidecar, sanitize,
+ * then run the pure office parser on the resulting markdown. Size/existence
+ * checks already happened in processFile; binary sniff is skipped (these
+ * files are binary by nature). All converter failures are per-file errors.
+ */
+async function processConvertedFile(adapter, filePath, format, opts, seenTitles, converter, report) {
+    report.format = format;
+    const info = await converter.available();
+    if (!info) {
+        report.status = 'error';
+        report.error = `${format} support requires markitdown — ${INSTALL_HINT}`;
+        return report;
+    }
+    const markdown = sanitizeConverted(await converter.convert(filePath));
+    if (markdown.trim().length === 0) {
+        report.status = 'skipped_empty';
+        return report;
+    }
+    const ctx = { filePath, baseName: basename(filePath, extname(filePath)), format };
+    const items = parseOffice(markdown, ctx);
+    if (items.length === 0) {
+        report.status = 'skipped_empty';
+        return report;
+    }
+    const outcome = { created: 0, duplicates: 0, changed: 0 };
+    for (const item of items) {
+        const withProvenance = { ...item, source_meta: { ...(item.source_meta ?? {}), converter: info.id } };
+        const hash = contentHash(item.content);
+        await writeItem(adapter, withProvenance, hash, format, filePath, opts, seenTitles, outcome);
+    }
+    report.records = outcome.created;
+    report.duplicates = outcome.duplicates;
+    if (outcome.changed > 0)
+        report.error = `${outcome.changed} record(s) changed since last ingest — not updated (use knowledge_update)`;
+    report.status = outcome.created > 0 ? (opts.dryRun ? 'dry_run' : 'created') : 'skipped_duplicate';
+    return report;
+}
+async function processFile(adapter, filePath, opts, seenTitles, converter) {
     const report = { path: filePath, format: null, status: 'error', records: 0, duplicates: 0 };
     try {
         const stat = await fs.stat(filePath);
         if (stat.size > MAX_FILE_BYTES) {
             report.status = 'skipped_too_large';
             return report;
+        }
+        const convertedFormat = detectConvertedFormat(filePath);
+        if (convertedFormat) {
+            return await processConvertedFile(adapter, filePath, convertedFormat, opts, seenTitles, converter, report);
         }
         const format = detectFormat(filePath);
         report.format = format;
@@ -175,10 +219,11 @@ export async function runIngest(adapter, opts) {
     // Existence check up front so the tool can return a clean error
     await fs.stat(target);
     const { files, capped } = await walk(target);
+    const converter = opts.converter ?? createConverter();
     const seenTitles = new Set();
     const reports = [];
     for (const file of files) {
-        reports.push(await processFile(adapter, file, opts, seenTitles));
+        reports.push(await processFile(adapter, file, opts, seenTitles, converter));
     }
     const count = (statuses) => reports.filter((r) => statuses.includes(r.status)).length;
     return {

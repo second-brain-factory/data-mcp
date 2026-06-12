@@ -22,3 +22,11 @@ export const PARSER_REGISTRY: Record<string, Parser> = {
 };
 
 export const SUPPORTED_FORMATS = Object.keys(PARSER_REGISTRY);
+
+/**
+ * Office formats handled via the markitdown converter sidecar (issue #17).
+ * Advertised in the tool description; requires markitdown at runtime.
+ * Legacy variants (.doc/.xls/.ppt/.epub) are handled best-effort but not
+ * advertised.
+ */
+export const CONVERTED_FORMATS = ['pdf', 'docx', 'xlsx', 'pptx'];

@@ -161,8 +161,15 @@ Exact-match queries are unaffected; fallback responses include
   fields return the expected schema so the model can self-correct.
 - **Brain:** `brain_stats`, `brain_decay`
 - **Ingest:** `ingest` — bulk-import local files or directories into
-  knowledge records. Supports markdown, plain text, CSV, JSON, and HTML.
-  Recurses directories (skips dotfiles, binaries, `node_modules`; capped at
+  knowledge records. Supports markdown, plain text, CSV, JSON, and HTML
+  natively, plus PDF, DOCX, XLSX, and PPTX when [markitdown](https://github.com/microsoft/markitdown)
+  is installed (`pip install 'markitdown[all]'`, or have `uv` installed for
+  the `uvx` fallback — no Node dependencies added). XLSX produces one record
+  per sheet, PPTX one per slide; converted records carry
+  `metadata.converter` provenance. Without markitdown, office files report
+  a per-file error with the install hint and the rest of the batch
+  continues. Recurses directories (skips dotfiles, binaries,
+  `node_modules`; capped at
   200 files), splits long documents at section/paragraph boundaries, and
   dedupes by `(type, title)` with a sha256 content hash stored in record
   metadata — re-ingesting the same files creates zero duplicates. Defaults
