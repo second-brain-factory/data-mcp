@@ -1,0 +1,10 @@
+{
+  "color": "DEFAULT",
+  "isTrashed": false,
+  "isPinned": false,
+  "isArchived": true,
+  "textContent": "ARCHIVED-NOTE-MARKER this note must not be ingested.",
+  "title": "Old archived idea",
+  "userEditedTimestampUsec": 1600000000000000,
+  "createdTimestampUsec": 1600000000000000
+}

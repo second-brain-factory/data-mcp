@@ -13,6 +13,7 @@ const EXTENSION_MAP: Record<string, string> = {
     '.json': 'json',
     '.html': 'html',
     '.htm': 'html',
+    '.enex': 'enex',
 };
 
 /**
@@ -53,8 +54,12 @@ export function detectConvertedFormat(filePath: string): string | null {
  * `"chat_messages"`. Both keys are vendor-specific enough that a prefix
  * scan is unambiguous; generic JSON stays `json`.
  */
-export function refineJsonFormat(content: string): 'chatgpt' | 'claude' | 'json' {
+export function refineJsonFormat(content: string): 'chatgpt' | 'claude' | 'keep' | 'json' {
     const head = content.slice(0, 65536);
+    // Google Keep (issue #19): one Takeout JSON OBJECT per note, carrying
+    // the vendor-specific "userEditedTimestampUsec" key. Arrays fall through
+    // to the chat-export checks below.
+    if (/^\s*\{/.test(head) && head.includes('"userEditedTimestampUsec"')) return 'keep';
     if (!/^\s*\[\s*\{/.test(head)) return 'json'; // chat exports are arrays of objects
     // ChatGPT: "mapping" appears early in each element; "current_node" comes
     // AFTER the (potentially huge) mapping, so confirm it on the full string

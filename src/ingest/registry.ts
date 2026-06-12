@@ -14,6 +14,8 @@ import { parseJson } from './parsers/json.js';
 import { parseHtml } from './parsers/html.js';
 import { parseChatGpt } from './parsers/chatgpt.js';
 import { parseClaude } from './parsers/claude.js';
+import { parseEnex } from './parsers/enex.js';
+import { parseKeep } from './parsers/keep.js';
 
 /** Extension-detected formats — drives the advertised extension list. */
 const BASE_PARSERS: Record<string, Parser> = {
@@ -22,17 +24,19 @@ const BASE_PARSERS: Record<string, Parser> = {
     csv: parseCsv,
     json: parseJson,
     html: parseHtml,
+    enex: parseEnex,
 };
 
 /**
- * Content-refined formats (issue #18): both vendors ship a
- * `conversations.json`, so detection is by shape (detect.ts
- * refineJsonFormat), not extension. Registered here so the runner's single
- * registry lookup covers them.
+ * Content-refined formats (issues #18/#19): chat exports and Keep notes are
+ * all `.json` files — shape, not extension, picks the parser (detect.ts
+ * refineJsonFormat). Registered here so the runner's single registry lookup
+ * covers them.
  */
 const REFINED_PARSERS: Record<string, Parser> = {
     chatgpt: parseChatGpt,
     claude: parseClaude,
+    keep: parseKeep,
 };
 
 export const PARSER_REGISTRY: Record<string, Parser> = {

@@ -1,0 +1,10 @@
+{
+  "color": "DEFAULT",
+  "isTrashed": true,
+  "isPinned": false,
+  "isArchived": false,
+  "textContent": "TRASHED-NOTE-MARKER this note must not be ingested.",
+  "title": "Deleted scratch note",
+  "userEditedTimestampUsec": 1600000000000000,
+  "createdTimestampUsec": 1600000000000000
+}
