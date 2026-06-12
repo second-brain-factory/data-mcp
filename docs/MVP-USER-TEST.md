@@ -14,8 +14,12 @@ on Supabase AND that no private cleartext exists on any member's disk there.
 **You need:** Claude Code CLI, git, a GitHub account (or use a local bare repo)
 
 The automated contract behind this manual is enforced by
-`scripts/team-e2e.mjs` (25 checks) — this manual covers the layer those
-scripts can't: the human + Claude UX.
+`scripts/team-e2e.mjs` (28 checks). A faithful scripted replay of THIS plan
+against the published npm package is `scripts/mvp-test-plan.mjs` (25 checks:
+two clones of a bare repo, real git sync ritual between steps, search
+quality, concurrent-write friction probe; `MVP_PKG_VERSION=x.y.z` to test a
+specific release). This manual covers the layer those scripts can't: the
+human + Claude UX.
 
 ---
 
