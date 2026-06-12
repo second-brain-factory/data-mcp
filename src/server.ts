@@ -30,12 +30,10 @@ const PACKAGE_VERSION: string = (() => {
 const SERVER_INSTRUCTIONS = `Second Brain memory and data layer: persistent knowledge, decisions, work sessions, team handoffs, goals, tasks, contacts, and CRM/content pipelines. Search here whenever the user wants to remember, recall, save, learn, decide, log work, hand off work, or manage their pipeline.
 
 Capabilities by tool prefix:
-- knowledge_* / link_* — store, recall (search), learn insights, record decisions, validate freshness, link related items into a graph. Use BEFORE answering questions about past work or stored context, and to save anything worth remembering.
-- session_* — log a work session's summary, decisions, and next steps; review past sessions. Use at the end of significant work.
+- knowledge_* / link_* — store, recall (search), learn insights, validate freshness, link related items into a graph. Use BEFORE answering questions about past work or stored context, and to save anything worth remembering.
+- record_* — generic create/update/query/delete for every other collection: decisions, goals, tasks, contacts, prospects (CRM stages), blog_posts, content_calendar, email_queue (queue only, no sending). Pass the collection name plus a data payload; invalid fields return the expected schema.
+- session_* — log a work session's summary, decisions, and next steps. Use at the end of significant work; list past sessions via record_query.
 - handoff_* — pass work between team members with full investigation context (what was tried, assumptions, what to re-verify). Use handoff_list with to_member "me" to see work waiting for you.
-- goal_* / task_* — goals with key results; tasks with status and priority.
-- contact_* / prospect_* — people and CRM pipeline (create, update, search).
-- blog_* / email_queue_* / content_queue_* — content drafts, outbound email queue (no sending), content calendar.
 - brain_* — stats and staleness decay reports for the whole brain.
 - setup_* — database status, migration report, seeding. Use setup_status when data tools fail.
 

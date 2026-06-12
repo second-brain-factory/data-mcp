@@ -1,3 +1,7 @@
 node_modules/
 *.tgz
 .DS_Store
+
+# Local pipeline artifacts and one-off deliverables
+.pipeline/
+deliverables/

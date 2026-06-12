@@ -20,7 +20,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import type { DataAdapter } from '../src/adapter/types.js';
 
-const EXPECTED_TOOL_COUNT = 44;
+const EXPECTED_TOOL_COUNT = 21;
 
 /** Hot-path tools that must stay loaded under tool search. */
 const ALWAYS_LOAD_TOOLS = [
@@ -28,7 +28,7 @@ const ALWAYS_LOAD_TOOLS = [
     'knowledge_store',
     'knowledge_learn',
     'session_log',
-    'task_list',
+    'record_query',
 ];
 
 /** Every tool name must start with one of these prefixes, and every prefix
@@ -37,16 +37,10 @@ const PREFIX_GROUPS = [
     'knowledge_',
     'session_',
     'handoff_',
-    'goal_',
-    'task_',
-    'contact_',
+    'record_',
     'brain_',
     'link_',
     'setup_',
-    'prospect_',
-    'blog_',
-    'email_queue_',
-    'content_queue_',
 ];
 
 function makeNoopAdapter(): DataAdapter {
@@ -97,7 +91,7 @@ describe('tool-search surface', () => {
     });
 
     it('keeps readOnlyHint on converted read-only tools', () => {
-        for (const name of ['knowledge_recall', 'task_list']) {
+        for (const name of ['knowledge_recall', 'record_query']) {
             const tool = tools.find((t) => t.name === name);
             expect(tool?.annotations?.readOnlyHint, `${name} readOnlyHint`).toBe(true);
         }

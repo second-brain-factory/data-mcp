@@ -125,7 +125,7 @@ try {
 
   // --- 3.9 cross-owner update by id ---
   console.log('\n[3.9] ola updates iwo record by exact id');
-  const upd = await call(ola, 'knowledge_update', { id: recordId, content: 'the floor is 1k' });
+  const upd = await call(ola, 'record_update', { collection: 'knowledge', id: recordId, data: { content: 'the floor is 1k' } });
   const updStr = JSON.stringify(upd);
   check('update rejected as not-found (no permission error)', /not.?found/i.test(updStr), updStr.slice(0, 300));
   check('no content leak in rejection', !updStr.includes(SECRET));

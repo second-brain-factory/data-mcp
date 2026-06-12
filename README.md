@@ -1,6 +1,6 @@
 # @iwo-szapar/data-mcp
 
-MCP server for a personal (and team) Second Brain: 44 tools for knowledge,
+MCP server for a personal (and team) Second Brain: 21 tools for knowledge,
 decisions, sessions, goals, tasks, contacts, knowledge links, and business
 collections (prospects, blog, email/content queues) — backed by your choice
 of **markdown files**, **Supabase**, or **PocketBase**.
@@ -142,26 +142,31 @@ nothing, it falls back to **any-term matching**: the query is tokenized,
 stopwords dropped, and each term is prefix-stemmed (plurals, -ing/-ed) so
 inflected words match — results are ranked by how many terms matched.
 Exact-match queries are unaffected; fallback responses include
-`matched_via: "any_term_fallback"`. Other search tools (`contact_search`,
-`prospect_search`) remain native-search only.
+`matched_via: "any_term_fallback"`. Other text searches (`record_query` with
+`query` on contacts/prospects/decisions) remain native-search only.
 
-## Tools (44)
+## Tools (21)
 
 - **Knowledge:** `knowledge_store`, `knowledge_recall`, `knowledge_learn`,
-  `knowledge_decide`, `knowledge_validate`, `knowledge_update`,
-  `knowledge_delete`, `knowledge_list`
-- **Links:** `link_create`, `link_delete`, `link_related`, `link_suggest`
-- **Sessions:** `session_log`, `session_list`
+  `knowledge_validate`
+- **Links:** `link_create`, `link_related`, `link_suggest`
+- **Sessions:** `session_log`
 - **Handoffs:** `handoff_create`, `handoff_update`, `handoff_list`
-- **Goals:** `goal_create`, `goal_update`, `goal_list`
-- **Tasks:** `task_create`, `task_update`, `task_list`
-- **Contacts:** `contact_create`, `contact_update`, `contact_list`,
-  `contact_search`
+- **Records (generic CRUD):** `record_create`, `record_update`,
+  `record_query`, `record_delete` — one set of tools for decisions, goals,
+  tasks, contacts, prospects, blog_posts, content_calendar, email_queue,
+  and knowledge_links. Pass `collection` plus a `data` payload; invalid
+  fields return the expected schema so the model can self-correct.
 - **Brain:** `brain_stats`, `brain_decay`
 - **Setup:** `setup_status`, `setup_migrate`, `setup_bootstrap`, `setup_seed`
-- **Business:** `prospect_create`, `prospect_update`, `prospect_list`,
-  `prospect_search`, `blog_create`, `blog_update`, `blog_list`,
-  `blog_delete`, `email_queue_add`, `content_queue_add`, `content_queue_list`
+
+In 0.9.0, 27 single-collection CRUD tools (goal_*, task_*, contact_*,
+prospect_*, blog_*, email_queue_add, content_queue_*, knowledge
+update/list/delete/decide, session_list, link_delete) were consolidated into
+the four `record_*` tools. The 44-tool surface serialized to ~9.8K tokens of
+client context; 21 tools is ~5.3K. Defaults and computed fields are
+preserved (blog `published_at` stamping, knowledge summary regeneration,
+stage/status defaults, delete confirm gate).
 
 ### Tool search / deferred loading
 
@@ -174,7 +179,7 @@ this:
   (`knowledge_*`, `handoff_*`, ...) and stay under the 2KB client truncation
   limit — guarded by `tests/tool-search-surface.test.ts`.
 - Hot-path tools (`knowledge_recall`, `knowledge_store`, `knowledge_learn`,
-  `session_log`, `task_list`) set `_meta["anthropic/alwaysLoad"]: true` so
+  `session_log`, `record_query`) set `_meta["anthropic/alwaysLoad"]: true` so
   they remain available without a search round-trip. Other clients ignore
   the annotation (it's additive metadata).
 
@@ -187,7 +192,7 @@ npm run build             # tsc → dist/
 npm test                  # unit tests (vitest)
 npm run test:e2e          # team E2E against local dist/ (markdown backend)
 npm run test:e2e:supabase # team E2E, Supabase backend (needs SB_SUPABASE_URL/KEY; skips otherwise)
-node scripts/smoke-test.mjs    # stdio boot + 44-tool surface check
+node scripts/smoke-test.mjs    # stdio boot + 21-tool surface check
 bash scripts/verify-dist.sh    # dist/ byte-comparability gate
 ```
 

@@ -119,7 +119,7 @@ try {
   const bobShared = await call(bob, 'knowledge_recall', { query: 'demo schedule' });
   check('bob MCP recall sees shared item', JSON.stringify(bobShared).includes(`${RUN}`), JSON.stringify(bobShared).slice(0, 200));
 
-  const bobUpdate = await call(bob, 'knowledge_update', { id: recordId, content: 'overwritten' });
+  const bobUpdate = await call(bob, 'record_update', { collection: 'knowledge', id: recordId, data: { content: 'overwritten' } });
   check('bob cross-owner update rejected not-found', /not.?found/i.test(JSON.stringify(bobUpdate)), JSON.stringify(bobUpdate).slice(0, 200));
 
   // --- 2. THE POINT: direct PostgREST with bob's JWT ---

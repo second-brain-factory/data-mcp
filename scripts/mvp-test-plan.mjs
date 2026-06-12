@@ -94,7 +94,7 @@ const A = await connect('iwo', CLONE_A);
 const B = await connect('aleksandra', CLONE_B);
 
 const toolsA = (await A.listTools()).tools;
-check('1.3 server exposes 41 tools', toolsA.length === 41, `got ${toolsA.length}`);
+check('1.3 server exposes 21 tools', toolsA.length === 21, `got ${toolsA.length}`);
 const sv = A.getServerVersion();
 check(`1.3b published package reports version ${PKG_VERSION}`, sv?.version === PKG_VERSION, `got ${sv?.version}`);
 
@@ -136,8 +136,8 @@ const s4 = await call(B, 'knowledge_recall', { query: 'demo' });
 check('2.4 B sees shared demo schedule', JSON.stringify(s4).includes('Friday at 10'), JSON.stringify(s4).slice(0, 300));
 
 // 5. A creates shared task
-const s5 = await call(A, 'task_create', {
-  title: 'Review onboarding doc', owner_scope: 'shared', priority: 'high',
+const s5 = await call(A, 'record_create', {
+  collection: 'tasks', data: { title: 'Review onboarding doc', priority: 'high' }, owner_scope: 'shared',
 });
 const taskId = s5.task?.id ?? s5.item?.id ?? s5.id;
 check('2.5 A creates shared task', Boolean(taskId), JSON.stringify(s5).slice(0, 300));
@@ -145,20 +145,20 @@ syncPush(CLONE_A, 'A: shared task');
 
 // 6. B pulls, lists, completes
 syncPull(CLONE_B);
-const s6list = await call(B, 'task_list', {});
+const s6list = await call(B, 'record_query', { collection: 'tasks' });
 check('2.6a B sees shared task', JSON.stringify(s6list).includes('onboarding doc'), JSON.stringify(s6list).slice(0, 300));
-const s6done = await call(B, 'task_update', { id: taskId, status: 'done' });
+const s6done = await call(B, 'record_update', { collection: 'tasks', id: taskId, data: { status: 'done' } });
 const s6str = JSON.stringify(s6done);
 check('2.6b B completes the task', !s6str.toLowerCase().includes('error') && !s6str.includes('NOT_FOUND'), s6str.slice(0, 300));
 syncPush(CLONE_B, 'B: task done');
 
 // 7. A pulls, verifies done
 syncPull(CLONE_A);
-const s7 = await call(A, 'task_list', { status: 'done' });
+const s7 = await call(A, 'record_query', { collection: 'tasks', filters: { status: 'done' } });
 check('2.7 A sees task marked done', JSON.stringify(s7).includes('onboarding doc'), JSON.stringify(s7).slice(0, 300));
 
 // 8. B tries to update A's private record by id -> not found, no leak
-const s8 = await call(B, 'knowledge_update', { id: privateId, content: 'tampered' }).catch((e) => ({ _err: String(e) }));
+const s8 = await call(B, 'record_update', { collection: 'knowledge', id: privateId, data: { content: 'tampered' } }).catch((e) => ({ _err: String(e) }));
 const s8str = JSON.stringify(s8);
 check('2.8 B blocked from updating A private record (no existence leak)',
   s8str.includes('not found') || s8str.includes('NOT_FOUND') || s8str.includes('_err') || s8str.includes('error'), s8str.slice(0, 300));
@@ -246,11 +246,11 @@ check('4.2c no junk files outside clones', junk.length === 0, junk.join(', '));
 
 // Cleanup test items (plan step: "clean up the test items")
 console.log('\n=== Cleanup: deleting test items ===');
-const allItems = await call(A, 'knowledge_list', { limit: 50 });
+const allItems = await call(A, 'record_query', { collection: 'knowledge', limit: 50 });
 const ids = (allItems.items ?? allItems.results ?? []).map((i) => i.id).filter(Boolean);
 let deleted = 0;
 for (const id of ids) {
-  const d = await call(A, 'knowledge_delete', { id, confirm: true }).catch(() => null);
+  const d = await call(A, 'record_delete', { collection: 'knowledge', id, confirm: true }).catch(() => null);
   if (d && !JSON.stringify(d).includes('error')) deleted++;
 }
 console.log(`  deleted ${deleted}/${ids.length} knowledge items visible to A`);
