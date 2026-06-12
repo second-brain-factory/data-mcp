@@ -17,6 +17,7 @@ import { parseClaude } from './parsers/claude.js';
 import { parseEnex } from './parsers/enex.js';
 import { parseKeep } from './parsers/keep.js';
 import { parseNotionMd, parseNotionDb } from './parsers/notion.js';
+import { parseSlackDay } from './parsers/slack.js';
 
 /** Extension-detected formats — drives the advertised extension list. */
 const BASE_PARSERS: Record<string, Parser> = {
@@ -40,6 +41,7 @@ const REFINED_PARSERS: Record<string, Parser> = {
     keep: parseKeep,
     notion: parseNotionMd,
     'notion-db': parseNotionDb,
+    slack: parseSlackDay,
 };
 
 export const PARSER_REGISTRY: Record<string, Parser> = {

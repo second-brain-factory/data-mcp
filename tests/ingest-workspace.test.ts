@@ -11,6 +11,8 @@ import type { DataAdapter, Filter, ListResult } from '../src/adapter/types.js';
 import { parseEnex } from '../src/ingest/parsers/enex.js';
 import { parseKeep } from '../src/ingest/parsers/keep.js';
 import { parseNotionMd, parseNotionDb, stripNotionId, stripNotionLinks } from '../src/ingest/parsers/notion.js';
+import { parseSlackDay, renderSlackText } from '../src/ingest/parsers/slack.js';
+import { detectExportKind, buildSlackUserMap } from '../src/ingest/export-context.js';
 import { detectFormat, refineJsonFormat, refinePathFormat } from '../src/ingest/detect.js';
 import { runIngest } from '../src/ingest/runner.js';
 
@@ -259,5 +261,116 @@ describe('runIngest Notion export (AC1, AC2)', () => {
         const again = await runIngest(adapter, { path: join(FIXTURES, 'notion'), dryRun: false });
         expect(again.records_created).toBe(0);
         expect(again.records_deduplicated).toBe(4);
+    });
+});
+
+describe('detectExportKind (AC6 detection matrix)', () => {
+    it('classifies slack, notion, and plain directories', () => {
+        expect(detectExportKind(['users.json', 'channels.json', 'general/2024-06-12.json'])).toBe('slack');
+        expect(detectExportKind(['Projects abc/Roadmap b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6.md'])).toBe('notion');
+        expect(detectExportKind(['notes.md', 'data.csv', 'export.json'])).toBe(null);
+        // day-file-shaped path without slack metadata stays plain (AC: matrix)
+        expect(detectExportKind(['general/2024-06-12.json'])).toBe(null);
+        // users.json alone is not a slack export
+        expect(detectExportKind(['users.json', 'general/2024-06-12.json'])).toBe(null);
+    });
+});
+
+describe('buildSlackUserMap', () => {
+    it('prefers display_name, falls back to real_name then name; tolerates garbage', () => {
+        const map = buildSlackUserMap([
+            { id: 'U1', name: 'ana', profile: { display_name: 'ana-d', real_name: 'Ana K' } },
+            { id: 'U2', name: 'marco', profile: { display_name: '', real_name: 'Marco Rossi' } },
+            { id: 'U3', name: 'plain' },
+            { noid: true },
+        ]);
+        expect(map.get('U1')).toBe('ana-d');
+        expect(map.get('U2')).toBe('Marco Rossi');
+        expect(map.get('U3')).toBe('plain');
+        expect(buildSlackUserMap('not an array').size).toBe(0);
+    });
+});
+
+describe('renderSlackText', () => {
+    it('resolves mentions, channels, links, and entities', () => {
+        const users = new Map([['U1', 'ana']]);
+        expect(renderSlackText('hi <@U1> see <#C9|general> at <https://x.io/a|the doc> or <https://y.io> &lt;3 &amp; more', users))
+            .toBe('hi @ana see #general at the doc (https://x.io/a) or https://y.io <3 & more');
+        expect(renderSlackText('<@U9> unknown', users)).toBe('@U9 unknown');
+    });
+});
+
+describe('parseSlackDay (AC3)', () => {
+    const slackCtx = (relPath: string, users?: Map<string, string>) => ({
+        filePath: `/tmp/export/${relPath}`,
+        baseName: relPath.split('/').pop()!.replace(/\.json$/, ''),
+        relPath,
+        export: { kind: 'slack' as const, users },
+    });
+
+    it('groups thread replies under their parent with resolved names', async () => {
+        const content = await readFile(join(FIXTURES, 'slack', 'general', '2024-06-12.json'), 'utf8');
+        const users = new Map([['U01AAA111', 'ana'], ['U02BBB222', 'Marco Rossi']]);
+        const items = parseSlackDay(content, slackCtx('general/2024-06-12.json', users));
+        expect(items).toHaveLength(1);
+        const c = items[0].content;
+        expect(items[0].title).toBe('#general 2024-06-12');
+        expect(items[0].tags).toEqual(['slack', '#general']);
+        expect(items[0].source_meta?.date).toBe('2024-06-12');
+        expect(c).toContain('ana: Heads up @Marco Rossi');
+        expect(c).toContain('the staging deploy for <v2>'); // entities unescaped
+        expect(c).toContain('↳ Marco Rossi: On it, running it now'); // reply grouped
+        expect(c).toContain('release notes (https://example.com/release)');
+        expect(c).not.toContain('has joined the channel'); // join noise skipped
+        // thread replies appear before the later top-level message
+        expect(c.indexOf('On it, running it now')).toBeLessThan(c.indexOf('lunch at the pasta place'));
+    });
+
+    it('join/leave-only day file yields no items', async () => {
+        const content = await readFile(join(FIXTURES, 'slack', 'random', '2024-06-13.json'), 'utf8');
+        const items = parseSlackDay(content, slackCtx('random/2024-06-13.json'));
+        expect(items).toHaveLength(0);
+    });
+
+    it('unknown user IDs fall back to the raw ID', async () => {
+        const content = await readFile(join(FIXTURES, 'slack', 'general', '2024-06-12.json'), 'utf8');
+        const items = parseSlackDay(content, slackCtx('general/2024-06-12.json'));
+        expect(items[0].content).toContain('U01AAA111: Heads up @U02BBB222');
+    });
+
+    it('non-array JSON yields no items', () => {
+        expect(parseSlackDay('{"messages": []}', slackCtx('general/2024-06-12.json'))).toHaveLength(0);
+    });
+});
+
+describe('runIngest slack export (AC1, AC3, AC6, AC7)', () => {
+    it('ingests day files with resolved users; metadata files skipped', async () => {
+        const { adapter, records } = makeMemoryAdapter();
+        const summary = await runIngest(adapter, { path: join(FIXTURES, 'slack'), dryRun: false });
+        expect(summary.files_scanned).toBe(4);
+        expect(summary.files_errored).toBe(0);
+        expect(summary.records_created).toBe(1); // general day; random day is join/leave-only
+
+        const day = records.find((r) => r.title === '#general 2024-06-12')!;
+        expect(day.source).toBe('ingest:slack');
+        expect(day.tags).toEqual(['slack', '#general']);
+        expect(day.content as string).toContain('ana: Heads up @Marco Rossi'); // users.json loaded by runner
+
+        const metaReports = summary.reports.filter((r) => r.error === 'slack export metadata');
+        expect(metaReports).toHaveLength(2); // users.json + channels.json
+        expect(records.some((r) => (r.content as string).includes('"id"'))).toBe(false);
+    });
+
+    it('re-ingest dedupes; same-named day file OUTSIDE a slack export stays generic json (AC6)', async () => {
+        const { adapter } = makeMemoryAdapter();
+        await runIngest(adapter, { path: join(FIXTURES, 'slack'), dryRun: false });
+        const again = await runIngest(adapter, { path: join(FIXTURES, 'slack'), dryRun: false });
+        expect(again.records_created).toBe(0);
+        expect(again.records_deduplicated).toBe(1);
+
+        // single day file ingested directly (no export root) -> generic json
+        const { adapter: a2 } = makeMemoryAdapter();
+        const single = await runIngest(a2, { path: join(FIXTURES, 'slack', 'general', '2024-06-12.json'), dryRun: false });
+        expect(single.reports[0].format).toBe('json');
     });
 });

@@ -1,0 +1,16 @@
+[
+  {
+    "type": "message",
+    "subtype": "channel_join",
+    "user": "U01AAA111",
+    "text": "<@U01AAA111> has joined the channel",
+    "ts": "1718262000.000100"
+  },
+  {
+    "type": "message",
+    "subtype": "channel_leave",
+    "user": "U02BBB222",
+    "text": "<@U02BBB222> has left the channel",
+    "ts": "1718262100.000200"
+  }
+]

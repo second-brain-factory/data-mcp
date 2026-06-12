@@ -1,0 +1,36 @@
+[
+  {
+    "type": "message",
+    "subtype": "channel_join",
+    "user": "U02BBB222",
+    "text": "<@U02BBB222> has joined the channel",
+    "ts": "1718175600.000100"
+  },
+  {
+    "type": "message",
+    "user": "U01AAA111",
+    "text": "Heads up <@U02BBB222> \u2014 the staging deploy for &lt;v2&gt; is blocked on the migration",
+    "ts": "1718175700.000200",
+    "thread_ts": "1718175700.000200"
+  },
+  {
+    "type": "message",
+    "user": "U02BBB222",
+    "text": "On it, running it now",
+    "ts": "1718175800.000300",
+    "thread_ts": "1718175700.000200"
+  },
+  {
+    "type": "message",
+    "user": "U01AAA111",
+    "text": "Confirmed green, shipping <https://example.com/release|release notes>",
+    "ts": "1718175900.000400",
+    "thread_ts": "1718175700.000200"
+  },
+  {
+    "type": "message",
+    "user": "U02BBB222",
+    "text": "Separate thing: lunch at the pasta place?",
+    "ts": "1718180000.000500"
+  }
+]
