@@ -71,6 +71,27 @@ export interface TaskRecord extends BaseRecord {
     tags?: string[];
     goal_id?: string;
 }
+export interface HandoffRecord extends BaseRecord {
+    title: string;
+    to_member: string;
+    status: string;
+    what_changed?: string;
+    tried?: Array<{
+        approach: string;
+        outcome: string;
+    }>;
+    assumptions?: string[];
+    blocked_on?: string;
+    next_steps?: string[];
+    needs_verification?: string[];
+    recheck_by?: string;
+    supersedes?: string;
+    task_id?: string;
+    session_ids?: string[];
+    accepted_at?: string;
+    completed_at?: string;
+    metadata?: Record<string, unknown>;
+}
 export interface ContactRecord extends BaseRecord {
     name: string;
     company?: string;

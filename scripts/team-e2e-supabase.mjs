@@ -48,7 +48,7 @@ const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 
 const ALICE = `e2e-alice-${RUN_ID}`;
 const BOB = `e2e-bob-${RUN_ID}`;
 const SHARED = `e2e-firma-${RUN_ID}`;
-const SCOPED_TABLES = ['knowledge', 'decisions', 'sessions', 'goals', 'tasks', 'contacts', 'knowledge_links'];
+const SCOPED_TABLES = ['knowledge', 'decisions', 'sessions', 'goals', 'tasks', 'contacts', 'knowledge_links', 'handoffs'];
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -124,7 +124,7 @@ try {
   const sv = alice.getServerVersion();
   check(`server version matches package.json (${PKG_VERSION})`, sv?.version === PKG_VERSION, `got ${sv?.version}`);
   const tools = (await alice.listTools()).tools;
-  check('41 tools registered', tools.length === 41, `got ${tools.length}`);
+  check('44 tools registered', tools.length === 44, `got ${tools.length}`);
   const learnTool = tools.find((t) => t.name === 'knowledge_learn');
   check('knowledge_learn exposes owner_scope param', JSON.stringify(learnTool?.inputSchema ?? {}).includes('owner_scope'));
 
@@ -201,6 +201,32 @@ try {
   const bobKn = bobStats.collections?.knowledge ?? bobStats.knowledge?.total ?? JSON.stringify(bobStats).match(/"knowledge"[^0-9]*([0-9]+)/)?.[1];
   console.log(`  alice knowledge count: ${aliceKn}, bob: ${bobKn}`);
   check('alice sees more knowledge than bob (private+shared vs shared)', Number(aliceKn) > Number(bobKn), `alice=${aliceKn} bob=${bobKn}`);
+
+  // --- 8. Handoff packets (issue #9) — live table roundtrip ---
+  console.log('\n[8] Handoff packets');
+  const handoff = await call(alice, 'handoff_create', {
+    title: `E2E ${RUN_ID}: auth debugging handoff`,
+    to_member: BOB,
+    what_changed: 'Rotated the JWT secret and re-minted member tokens.',
+    tried: [{ approach: 'token refresh', outcome: 'failed — expired mid-flight' }],
+    needs_verification: ['staging login flow'],
+  });
+  const handoffId = handoff.handoff?.id ?? handoff.item?.id ?? handoff.id;
+  check('alice creates handoff for bob', Boolean(handoffId), JSON.stringify(handoff).slice(0, 300));
+
+  if (handoffId) {
+    const bobInbox = await call(bob, 'handoff_list', { to_member: 'me' });
+    const inboxStr = JSON.stringify(bobInbox);
+    check('bob sees handoff via to_member "me"', inboxStr.includes(`E2E ${RUN_ID}`), inboxStr.slice(0, 300));
+    check('evidence fields intact over supabase (tried objects)', inboxStr.includes('expired mid-flight'), inboxStr.slice(0, 300));
+    const accepted = await call(bob, 'handoff_update', { id: handoffId, status: 'accepted' });
+    const accStr = JSON.stringify(accepted);
+    check('bob accepts handoff (accepted_at stamped)', accStr.includes('accepted_at') && !accStr.toLowerCase().includes('"error"'), accStr.slice(0, 300));
+  } else {
+    check('bob sees handoff via to_member "me"', false, 'no handoff id captured');
+    check('evidence fields intact over supabase (tried objects)', false, 'no handoff id captured');
+    check('bob accepts handoff (accepted_at stamped)', false, 'no handoff id captured');
+  }
 } finally {
   console.log('\nCleaning up run data...');
   await cleanup();

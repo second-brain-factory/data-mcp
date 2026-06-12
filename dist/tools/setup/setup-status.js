@@ -19,6 +19,7 @@ const EXPECTED_COLLECTIONS = [
     'tasks',
     'contacts',
     'knowledge_links',
+    'handoffs',
     'entity_aliases',
     'settings',
     'prospects',

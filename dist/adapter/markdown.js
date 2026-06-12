@@ -395,6 +395,16 @@ function parseScalar(v) {
         if (!Number.isNaN(n))
             return n;
     }
+    // JSON object/array (objects inside list items roundtrip as JSON —
+    // e.g. handoffs.tried, sessions.decisions_made)
+    if ((v.startsWith('{') && v.endsWith('}')) || (v.startsWith('[') && v.endsWith(']'))) {
+        try {
+            return JSON.parse(v);
+        }
+        catch {
+            // Not valid JSON — fall through to raw string.
+        }
+    }
     return v;
 }
 function stringifyFrontmatter(frontmatter, body) {
@@ -437,6 +447,13 @@ function stringifyScalar(v) {
         return v ? 'true' : 'false';
     if (typeof v === 'number')
         return String(v);
+    if (typeof v === 'object') {
+        // Objects inside list items (e.g. handoffs.tried entries,
+        // sessions.decisions_made) — serialize as JSON; parseScalar
+        // JSON.parses it back. Previously this hit String(v) and
+        // corrupted the value to "[object Object]".
+        return JSON.stringify(v);
+    }
     const s = String(v);
     // Quote if contains special chars
     if (/[:#\n\[\]{}"',&*!|>%@`]/.test(s) || s.trim() !== s || s === '') {

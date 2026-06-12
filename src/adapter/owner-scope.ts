@@ -9,6 +9,7 @@ const DEFAULT_SCOPED_COLLECTIONS = new Set([
     'tasks',
     'contacts',
     'knowledge_links',
+    'handoffs',
 ]);
 
 export interface OwnerRoutingConfig {
@@ -21,6 +22,10 @@ export class OwnerScopeProxy implements DataAdapter {
     private ownerId: string;
     private sharedOwnerId: string;
     readonly ownerScopeEnabled = true;
+    /** Exposed so tools can resolve "me" and validate recipient/scope combos. */
+    get currentOwnerId(): string {
+        return this.ownerId;
+    }
     /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
     readonly createCollection?: (collection: string) => Promise<void>;
     /** Mirrors the inner adapter's optional capability (undefined when unsupported). */

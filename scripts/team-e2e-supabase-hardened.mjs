@@ -145,10 +145,37 @@ try {
   console.log('\n[3] Service-role path unchanged');
   const svc = await restService(`knowledge?owner_id=eq.${ALICE}&select=id,title`);
   check('service key still sees all rows (BYPASSRLS)', svc.status === 200 && svc.body.length >= 1, JSON.stringify(svc).slice(0, 200));
+
+  // --- 4. Handoff isolation under RLS (issue #9) ---
+  console.log('\n[4] Handoff isolation under member-JWT RLS');
+  const selfHandoff = await call(alice, 'handoff_create', {
+    title: `Alice private self-handoff (${RUN})`,
+    to_member: ALICE,
+    owner_scope: 'private',
+    what_changed: SECRET_TEXT,
+  });
+  check('alice creates private self-handoff via member JWT', Boolean(selfHandoff.item?.id ?? selfHandoff.id), JSON.stringify(selfHandoff).slice(0, 200));
+
+  const sharedHandoff = await call(alice, 'handoff_create', {
+    title: `Shared handoff to bob (${RUN})`,
+    to_member: BOB,
+    tried: [{ approach: 'rls probe', outcome: 'isolated' }],
+  });
+  check('alice creates shared handoff to bob', Boolean(sharedHandoff.item?.id ?? sharedHandoff.id), JSON.stringify(sharedHandoff).slice(0, 200));
+
+  const bobHandoffDirect = await rest(`handoffs?owner_id=eq.${ALICE}&select=id,title,what_changed`, bobJwt);
+  check('bob direct REST sees ZERO alice private handoffs (RLS fails closed)', bobHandoffDirect.status === 200 && Array.isArray(bobHandoffDirect.body) && bobHandoffDirect.body.length === 0, JSON.stringify(bobHandoffDirect).slice(0, 300));
+
+  const bobHandoffShared = await rest(`handoffs?owner_id=eq.${SHARED}&select=id,title`, bobJwt);
+  check('bob direct REST CAN read shared handoffs', bobHandoffShared.status === 200 && bobHandoffShared.body.length >= 1, JSON.stringify(bobHandoffShared).slice(0, 200));
+
+  const bobInbox = await call(bob, 'handoff_list', { to_member: 'me' });
+  const bobInboxStr = JSON.stringify(bobInbox);
+  check('bob handoff_list "me" sees shared handoff, not alice private', bobInboxStr.includes(`Shared handoff to bob (${RUN})`) && !bobInboxStr.includes(SECRET_TEXT), bobInboxStr.slice(0, 300));
 }
 finally {
   console.log('\nTeardown...');
-  for (const table of ['knowledge', 'decisions', 'sessions', 'goals', 'tasks', 'contacts', 'knowledge_links']) {
+  for (const table of ['knowledge', 'decisions', 'sessions', 'goals', 'tasks', 'contacts', 'knowledge_links', 'handoffs']) {
     for (const owner of [ALICE, BOB, SHARED]) {
       const res = await restService(`${table}?owner_id=eq.${owner}`, { method: 'DELETE' });
       if (res.status >= 400) console.log(`  teardown warning: ${table}/${owner}: ${res.status}`);
