@@ -5,7 +5,7 @@
  * html-only fallback, attachment skipping, bulk detection.
  */
 import { describe, it, expect } from 'vitest';
-import { parseEmailMessage, decodeEncodedWords, splitMultipart, MAX_BODY_CHARS } from '../src/ingest/email/mime.js';
+import { parseEmailMessage, decodeEncodedWords, splitMultipart, MAX_BODY_CHARS, MAX_HEADER_CHARS } from '../src/ingest/email/mime.js';
 
 const CRLF = (s: string) => s.replace(/\n/g, '\r\n');
 
@@ -496,4 +496,95 @@ describe('mbox bounded memory (AC2, deviation D2)', () => {
             await rm(dir, { recursive: true, force: true });
         }
     }, 120000);
+});
+
+describe('adversarial-input hardening (issue-20 review findings)', () => {
+    it('normalizeSubject is linear on space-padded subjects (no ReDoS)', () => {
+        const subject = 're' + ' '.repeat(200_000) + 'payload';
+        const start = performance.now();
+        normalizeSubject(subject);
+        expect(performance.now() - start).toBeLessThan(200);
+    });
+
+    it('thread grouping survives a pathological Re:-shaped subject quickly', () => {
+        const emails = [
+            parseEmailMessage(`From: a@x.com\nSubject: ${'re' + ' '.repeat(900) + 'x'}\nMessage-ID: <p1@x>\n\nbody`),
+            parseEmailMessage(`From: b@x.com\nSubject: normal\nMessage-ID: <p2@x>\n\nbody`),
+        ];
+        const start = performance.now();
+        const { items } = groupEmailThreads(emails);
+        expect(performance.now() - start).toBeLessThan(500);
+        expect(items.length).toBeGreaterThan(0);
+    });
+
+    it('displayName-rendered From with huge space padding is linear', () => {
+        const padded = 'A' + ' '.repeat(100_000) + 'B <a@x.com>';
+        const email = parseEmailMessage(`From: x@x.com\nSubject: t\nMessage-ID: <d1@x>\n\nbody`);
+        // headers are capped at MAX_HEADER_CHARS, so build directly to hit displayName
+        const start = performance.now();
+        const { items } = groupEmailThreads([{ ...email, from: padded }]);
+        expect(performance.now() - start).toBeLessThan(500);
+        expect(items[0].content).toContain('A');
+    });
+
+    it('caps retained subject/from/to headers at MAX_HEADER_CHARS', () => {
+        const huge = 'x'.repeat(100_000);
+        const mail = parseEmailMessage(`Subject: ${huge}\nFrom: ${huge}\nTo: ${huge}\n\nbody`);
+        expect(mail.subject.length).toBeLessThanOrEqual(MAX_HEADER_CHARS);
+        expect(mail.from.length).toBeLessThanOrEqual(MAX_HEADER_CHARS);
+        expect(mail.to.length).toBeLessThanOrEqual(MAX_HEADER_CHARS);
+    });
+
+    it('an oversized single text part is sliced to the body budget (no cap bypass)', () => {
+        const big = 'a'.repeat(MAX_BODY_CHARS * 4);
+        const raw = [
+            'Subject: big part', 'MIME-Version: 1.0',
+            'Content-Type: multipart/alternative; boundary="b"', '',
+            '--b', 'Content-Type: text/plain', '', big, '--b--', '',
+        ].join('\n');
+        const mail = parseEmailMessage(raw);
+        expect(mail.body.length).toBeLessThanOrEqual(MAX_BODY_CHARS);
+    });
+
+    it('html-only message with adversarial unclosed script tags stays fast and bounded', () => {
+        const evil = '<script>'.repeat(60_000); // far beyond MAX_HTML_CHARS
+        const raw = `Subject: evil html\nContent-Type: text/html\n\n${evil}`;
+        const start = performance.now();
+        const mail = parseEmailMessage(raw);
+        expect(performance.now() - start).toBeLessThan(2000);
+        expect(mail.body.length).toBeLessThanOrEqual(MAX_BODY_CHARS);
+    });
+
+    it('a single newline-free line cannot defeat MAX_RAW_MESSAGE_CHARS (carry cap)', async () => {
+        const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+        const { tmpdir } = await import('node:os');
+        const dir = await mkdtemp(join(tmpdir(), 'ingest-mbox-carry-'));
+        try {
+            // one valid message, then a message whose body is a single
+            // ~12MB line with no newline (unwrapped base64 shape)
+            const oneLine = 'A'.repeat(12 * 1024 * 1024);
+            const mbox = [
+                'From a@x.com Mon Jun 10 09:00:00 2024',
+                'From: a@x.com', 'Subject: ok', 'Message-ID: <c1@x>', '',
+                'normal body', '',
+                'From b@x.com Mon Jun 10 09:01:00 2024',
+                'From: b@x.com', 'Subject: huge', 'Message-ID: <c2@x>', '',
+                oneLine,
+            ].join('\n');
+            const p = join(dir, 'carry.mbox');
+            await writeFile(p, mbox);
+            global.gc?.();
+            const before = process.memoryUsage().rss;
+            const { emails, messagesParsed } = await readMbox(p);
+            const after = process.memoryUsage().rss;
+            expect(messagesParsed).toBe(2);
+            expect(emails[0].subject).toBe('ok');
+            expect(emails[1].subject).toBe('huge');
+            // 12MB single line must not balloon RSS beyond the raw cap region
+            expect((after - before) / (1024 * 1024)).toBeLessThan(100);
+            expect(emails[1].body.length).toBeLessThanOrEqual(MAX_BODY_CHARS);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    }, 60000);
 });

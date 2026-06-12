@@ -14,8 +14,9 @@
  * Split heuristic: a new message starts at a line matching
  * /^From \S+ /  (envelope sender + date follow). Plain "From " inside an
  * unescaped body (broken producers) can misfire — the resulting fragment
- * fails header parsing and is counted as a per-message error; the batch
- * continues (plan edge-case: degrade, never lose other messages).
+ * parses as a header-less message and degrades to (at worst) a junk
+ * record; the batch continues (plan edge-case: degrade, never lose
+ * other messages).
  */
 import { type ParsedEmail } from './mime.js';
 /**

@@ -14,8 +14,9 @@
  * Split heuristic: a new message starts at a line matching
  * /^From \S+ /  (envelope sender + date follow). Plain "From " inside an
  * unescaped body (broken producers) can misfire — the resulting fragment
- * fails header parsing and is counted as a per-message error; the batch
- * continues (plan edge-case: degrade, never lose other messages).
+ * parses as a header-less message and degrades to (at worst) a junk
+ * record; the batch continues (plan edge-case: degrade, never lose
+ * other messages).
  */
 import { createReadStream } from 'node:fs';
 import { parseEmailMessage } from './mime.js';
@@ -72,6 +73,14 @@ export async function readMbox(filePath) {
         const text = carry + chunk;
         const lines = text.split('\n');
         carry = lines.pop() ?? ''; // last element may be a partial line
+        // A single newline-free run (e.g. unwrapped base64) must not
+        // accumulate unbounded in `carry` and defeat MAX_RAW_MESSAGE_CHARS
+        // (review finding issue-20 #3). Past the cap the message is being
+        // truncated anyway, so keep only a tail long enough to detect the
+        // next envelope line.
+        if (carry.length > MAX_RAW_MESSAGE_CHARS) {
+            carry = carry.slice(-1024);
+        }
         for (const line of lines) {
             const l = line.endsWith('\r') ? line.slice(0, -1) : line;
             if (ENVELOPE_LINE.test(l)) {

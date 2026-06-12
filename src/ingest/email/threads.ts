@@ -21,11 +21,19 @@ import type { ParsedEmail } from './mime.js';
 import { chunkConversation, type ChatMessage } from '../parsers/conversation.js';
 import { titleChunks } from '../chunk.js';
 
+/**
+ * Reply/forward prefix. The optional counter group is `(\s*\[\d+\])?` —
+ * keeping the leading \s* INSIDE the optional group avoids the adjacent
+ * `\s*(...)?\s*` ambiguity that made the previous pattern O(n^2) on
+ * space-padded subjects (ReDoS, review finding issue-20 #1).
+ */
+const SUBJECT_PREFIX = /^(re|fwd?|fw|aw|sv|odp)(\s*\[\d+\])?\s*:\s*/i;
+
 /** Strip reply/forward prefixes for subject-based grouping (AC3). */
 export function normalizeSubject(subject: string): string {
     let s = subject.trim();
     for (;;) {
-        const next = s.replace(/^(re|fwd?|fw|aw|sv|odp)\s*(\[\d+\])?\s*:\s*/i, '');
+        const next = s.replace(SUBJECT_PREFIX, '');
         if (next === s) break;
         s = next;
     }
@@ -66,10 +74,21 @@ export function trimQuotedReplies(body: string): string {
     return keep.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-/** Display name portion of a From header ("Ana <a@x>" -> "Ana"). */
+/**
+ * Display name portion of a From header ("Ana <a@x>" -> "Ana").
+ * Index-based (no regex over the name span) — the previous
+ * /^\s*"?([^"<]+?)"?\s*</ pattern was O(n^2) on space-padded headers
+ * (ReDoS, review finding issue-20 #2).
+ */
 function displayName(from: string): string {
-    const m = from.match(/^\s*"?([^"<]+?)"?\s*</);
-    if (m) return m[1].trim();
+    const lt = from.indexOf('<');
+    if (lt > 0) {
+        let name = from.slice(0, lt).trim();
+        if (name.startsWith('"') && name.endsWith('"') && name.length >= 2) {
+            name = name.slice(1, -1).trim();
+        }
+        if (name.length > 0) return name;
+    }
     return from.replace(/[<>]/g, '').trim() || 'Unknown sender';
 }
 
@@ -136,7 +155,7 @@ export function groupEmailThreads(emails: ParsedEmail[], opts: ThreadGroupOption
             if (subj && ids.length === 0) thread = subjectToThread.get(subj);
             // Subject fallback also catches replies whose References point
             // outside the archive: same normalized subject + Re: prefix.
-            if (!thread && subj && /^\s*(re|fwd?|fw|aw|sv|odp)\s*(\[\d+\])?\s*:/i.test(e.subject)) {
+            if (!thread && subj && SUBJECT_PREFIX.test(e.subject.trim())) {
                 thread = subjectToThread.get(subj);
             }
         }
@@ -172,7 +191,7 @@ export function groupEmailThreads(emails: ParsedEmail[], opts: ThreadGroupOption
         if (messages.length === 0) continue;
 
         const first = sorted[0];
-        const baseTitle = (normalizeSubject(first.subject) ? first.subject.replace(/^(re|fwd?|fw|aw|sv|odp)\s*(\[\d+\])?\s*:\s*/i, '').trim() : '') || 'Untitled email thread';
+        const baseTitle = (normalizeSubject(first.subject) ? first.subject.replace(SUBJECT_PREFIX, '').trim() : '') || 'Untitled email thread';
         const seen = titleCounts.get(baseTitle) ?? 0;
         titleCounts.set(baseTitle, seen + 1);
         const title = seen === 0 ? baseTitle : `${baseTitle} (${seen + 1})`;

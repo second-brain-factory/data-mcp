@@ -20,6 +20,14 @@ import { htmlToText } from '../parsers/html.js';
 /** Max decoded body characters kept per message. */
 export const MAX_BODY_CHARS = 16 * 1024;
 
+/**
+ * Max raw HTML characters retained before tag-stripping. HTML markup
+ * overhead means a 16KB text body can need far more raw HTML, but the
+ * input to htmlToText must stay bounded — its lazy script/comment scans
+ * are quadratic on adversarial unclosed tags (review finding issue-20 #4).
+ */
+export const MAX_HTML_CHARS = 4 * MAX_BODY_CHARS;
+
 export interface ParsedEmail {
     messageId: string | null;
     inReplyTo: string | null;
@@ -170,10 +178,21 @@ function walkPart(headers: HeaderMap, body: string, out: BodyResult, depth: numb
     }
 
     const decoded = decodePartBody(body, headers.get('content-transfer-encoding'), params.charset ?? '');
+    // Slice each part to the remaining budget BEFORE appending: the old
+    // check-then-append let one oversized part flow uncapped into
+    // htmlToText (review finding issue-20 #4).
     if (type === 'text/plain' || type === 'text') {
-        if (out.text.length < MAX_BODY_CHARS) out.text = out.text ? `${out.text}\n\n${decoded}` : decoded;
+        const budget = MAX_BODY_CHARS - out.text.length;
+        if (budget > 0) {
+            const piece = decoded.slice(0, budget);
+            out.text = out.text ? `${out.text}\n\n${piece}` : piece;
+        }
     } else if (type === 'text/html') {
-        if (out.html.length < MAX_BODY_CHARS) out.html = out.html ? `${out.html}\n` + decoded : decoded;
+        const budget = MAX_HTML_CHARS - out.html.length;
+        if (budget > 0) {
+            const piece = decoded.slice(0, budget);
+            out.html = out.html ? `${out.html}\n` + piece : piece;
+        }
     } else if (filename) {
         out.attachments.push(decodeEncodedWords(filename));
     }
@@ -204,6 +223,14 @@ export function splitMultipart(body: string, boundary: string): string[] {
     if (current && current.length > 0) parts.push(current.join('\n'));
     return parts;
 }
+
+/**
+ * Max characters retained per display header (subject/from/to). Headers
+ * unfold with no length limit, so a single 4MB message could otherwise
+ * retain multi-MB strings per email across a whole batch and hand
+ * pathological inputs to downstream string work (review issue-20 #3 note).
+ */
+export const MAX_HEADER_CHARS = 1024;
 
 /** Extract `<id>` tokens from a References/In-Reply-To header value. */
 function messageIds(value: string | undefined): string[] {
@@ -240,9 +267,9 @@ export function parseEmailMessage(raw: string): ParsedEmail {
         messageId: messageIds(headers.get('message-id'))[0] ?? null,
         inReplyTo: messageIds(headers.get('in-reply-to'))[0] ?? null,
         references: messageIds(headers.get('references')),
-        subject: decodeEncodedWords(headers.get('subject') ?? '').trim(),
-        from: decodeEncodedWords(headers.get('from') ?? '').trim(),
-        to: decodeEncodedWords(headers.get('to') ?? '').trim(),
+        subject: decodeEncodedWords((headers.get('subject') ?? '').slice(0, MAX_HEADER_CHARS)).trim(),
+        from: decodeEncodedWords((headers.get('from') ?? '').slice(0, MAX_HEADER_CHARS)).trim(),
+        to: decodeEncodedWords((headers.get('to') ?? '').slice(0, MAX_HEADER_CHARS)).trim(),
         date: toIso(headers.get('date')),
         body: text,
         attachments: out.attachments,

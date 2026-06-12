@@ -16,6 +16,13 @@
  */
 /** Max decoded body characters kept per message. */
 export declare const MAX_BODY_CHARS: number;
+/**
+ * Max raw HTML characters retained before tag-stripping. HTML markup
+ * overhead means a 16KB text body can need far more raw HTML, but the
+ * input to htmlToText must stay bounded — its lazy script/comment scans
+ * are quadratic on adversarial unclosed tags (review finding issue-20 #4).
+ */
+export declare const MAX_HTML_CHARS: number;
 export interface ParsedEmail {
     messageId: string | null;
     inReplyTo: string | null;
@@ -52,6 +59,13 @@ export declare function parseContentType(header: string | undefined): {
 };
 /** Split a multipart body on its boundary lines into raw parts. */
 export declare function splitMultipart(body: string, boundary: string): string[];
+/**
+ * Max characters retained per display header (subject/from/to). Headers
+ * unfold with no length limit, so a single 4MB message could otherwise
+ * retain multi-MB strings per email across a whole batch and hand
+ * pathological inputs to downstream string work (review issue-20 #3 note).
+ */
+export declare const MAX_HEADER_CHARS = 1024;
 /**
  * Parse one raw RFC 2822 message (headers + MIME body) into a ParsedEmail.
  * Pure; never does I/O. Throws only on truly unprocessable input — callers
