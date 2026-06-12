@@ -1,7 +1,7 @@
 /**
- * Tool registration — imports and calls all 39 register functions.
+ * Tool registration — imports and calls all 44 register functions.
  */
-// Memory tools (26)
+// Memory tools (29)
 import { registerKnowledgeStore } from './memory/knowledge-store.js';
 import { registerKnowledgeRecall } from './memory/knowledge-recall.js';
 import { registerKnowledgeLearn } from './memory/knowledge-learn.js';
@@ -18,6 +18,9 @@ import { registerGoalList } from './memory/goal-list.js';
 import { registerTaskCreate } from './memory/task-create.js';
 import { registerTaskUpdate } from './memory/task-update.js';
 import { registerTaskList } from './memory/task-list.js';
+import { registerHandoffCreate } from './memory/handoff-create.js';
+import { registerHandoffUpdate } from './memory/handoff-update.js';
+import { registerHandoffList } from './memory/handoff-list.js';
 import { registerContactCreate } from './memory/contact-create.js';
 import { registerContactUpdate } from './memory/contact-update.js';
 import { registerContactList } from './memory/contact-list.js';
@@ -63,6 +66,9 @@ export function registerAllTools(server, adapter) {
     registerTaskCreate(server, adapter);
     registerTaskUpdate(server, adapter);
     registerTaskList(server, adapter);
+    registerHandoffCreate(server, adapter);
+    registerHandoffUpdate(server, adapter);
+    registerHandoffList(server, adapter);
     registerContactCreate(server, adapter);
     registerContactUpdate(server, adapter);
     registerContactList(server, adapter);

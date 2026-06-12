@@ -1,7 +1,7 @@
 {
   "name": "@iwo-szapar/data-mcp",
   "version": "0.8.0",
-  "description": "Unified data MCP server for Second Brain — markdown, Supabase, and PocketBase backends. 41 tools: knowledge, sessions, goals, tasks, contacts, links, CRM, blog, email, content calendar. Optional team mode via owner scoping.",
+  "description": "Unified data MCP server for Second Brain — markdown, Supabase, and PocketBase backends. 44 tools: knowledge, sessions, handoffs, goals, tasks, contacts, links, CRM, blog, email, content calendar. Optional team mode via owner scoping.",
   "author": "Iwo Szapar <iwo.szapar@gmail.com> (https://iwoszapar.com)",
   "homepage": "https://iwoszapar.com/second-brain-ai",
   "bugs": {

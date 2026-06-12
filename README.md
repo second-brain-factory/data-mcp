@@ -1,6 +1,6 @@
 # @iwo-szapar/data-mcp
 
-MCP server for a personal (and team) Second Brain: 41 tools for knowledge,
+MCP server for a personal (and team) Second Brain: 44 tools for knowledge,
 decisions, sessions, goals, tasks, contacts, knowledge links, and business
 collections (prospects, blog, email/content queues) — backed by your choice
 of **markdown files**, **Supabase**, or **PocketBase**.
@@ -145,13 +145,14 @@ Exact-match queries are unaffected; fallback responses include
 `matched_via: "any_term_fallback"`. Other search tools (`contact_search`,
 `prospect_search`) remain native-search only.
 
-## Tools (41)
+## Tools (44)
 
 - **Knowledge:** `knowledge_store`, `knowledge_recall`, `knowledge_learn`,
   `knowledge_decide`, `knowledge_validate`, `knowledge_update`,
   `knowledge_delete`, `knowledge_list`
 - **Links:** `link_create`, `link_delete`, `link_related`, `link_suggest`
 - **Sessions:** `session_log`, `session_list`
+- **Handoffs:** `handoff_create`, `handoff_update`, `handoff_list`
 - **Goals:** `goal_create`, `goal_update`, `goal_list`
 - **Tasks:** `task_create`, `task_update`, `task_list`
 - **Contacts:** `contact_create`, `contact_update`, `contact_list`,
@@ -171,7 +172,7 @@ npm run build             # tsc → dist/
 npm test                  # unit tests (vitest)
 npm run test:e2e          # team E2E against local dist/ (markdown backend)
 npm run test:e2e:supabase # team E2E, Supabase backend (needs SB_SUPABASE_URL/KEY; skips otherwise)
-node scripts/smoke-test.mjs    # stdio boot + 41-tool surface check
+node scripts/smoke-test.mjs    # stdio boot + 44-tool surface check
 bash scripts/verify-dist.sh    # dist/ byte-comparability gate
 ```
 

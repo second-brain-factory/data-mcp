@@ -7,12 +7,17 @@ const DEFAULT_SCOPED_COLLECTIONS = new Set([
     'tasks',
     'contacts',
     'knowledge_links',
+    'handoffs',
 ]);
 export class OwnerScopeProxy {
     inner;
     ownerId;
     sharedOwnerId;
     ownerScopeEnabled = true;
+    /** Exposed so tools can resolve "me" and validate recipient/scope combos. */
+    get currentOwnerId() {
+        return this.ownerId;
+    }
     /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
     createCollection;
     /** Mirrors the inner adapter's optional capability (undefined when unsupported). */

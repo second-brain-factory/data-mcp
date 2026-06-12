@@ -8,6 +8,8 @@ export declare class OwnerScopeProxy implements DataAdapter {
     private ownerId;
     private sharedOwnerId;
     readonly ownerScopeEnabled = true;
+    /** Exposed so tools can resolve "me" and validate recipient/scope combos. */
+    get currentOwnerId(): string;
     /** Mirrors the inner adapter's optional capability (undefined when unsupported). */
     readonly createCollection?: (collection: string) => Promise<void>;
     /** Mirrors the inner adapter's optional capability (undefined when unsupported). */

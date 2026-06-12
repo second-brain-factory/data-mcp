@@ -122,7 +122,7 @@ the routing:
 | `MEMORYOS_SHARED_OWNER_ID` | identical for everyone | the team's shared scope (default `firma`) |
 
 With owner routing active on the scoped collections (knowledge, decisions,
-sessions, goals, tasks, contacts, knowledge_links):
+sessions, goals, tasks, contacts, knowledge_links, handoffs):
 
 - Writes default to **private** (your `MEMORYOS_OWNER_ID`). Pass
   `owner_scope: "shared"` to write to the team scope.
@@ -132,6 +132,32 @@ sessions, goals, tasks, contacts, knowledge_links):
   `RECORD_NOT_FOUND` — existence is not leaked.
 - Unscoped collections (settings, prospects, blog_posts, queues, ...) are
   team-global: everyone sees everything.
+
+### Handoff packets (passing work between members)
+
+When one member finishes a work session and another picks it up, a plain
+"done, your turn" message loses all the investigation context: what was
+tried and failed, what assumptions the work rests on, what must be
+re-verified. Handoff packets capture that as a first-class record:
+
+1. **Alice (finishing):** "Hand off the auth debugging to Bob" →
+   `handoff_create` with `to_member: "bob"`, plus the evidence fields:
+   `what_changed`, `tried` (approaches + outcomes, including failures),
+   `assumptions`, `blocked_on`, `next_steps`, `needs_verification`, and
+   optionally `recheck_by` (date after which the context is stale) and
+   `supersedes` (an earlier handoff this replaces).
+2. **Bob (starting):** "What's been handed to me?" → `handoff_list` with
+   `to_member: "me"` — returns open packets addressed to him, newest first.
+3. **Bob accepts:** `handoff_update` with `status: "accepted"` — stamps
+   `accepted_at` so Alice can see it was picked up.
+4. **Bob finishes:** `status: "completed"` stamps `completed_at`. (Also
+   available: `cancelled`.)
+
+Handoffs are **shared by default** — a handoff the recipient cannot read is
+useless. A private handoff addressed to another member is rejected at create
+time; private is only valid for self-handoffs (`to_member` = your own id),
+which work as "note to future me" packets. Link a handoff to work items via
+the freeform `task_id` / `session_ids` fields.
 
 ## Option 1 — Supabase backend (shared project, recommended)
 

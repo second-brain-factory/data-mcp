@@ -22,6 +22,7 @@ const COLLECTION_SCHEMAS = [
     { name: 'tasks', description: 'Tasks with status and priority' },
     { name: 'contacts', description: 'Contact information' },
     { name: 'knowledge_links', description: 'Typed links between knowledge items' },
+    { name: 'handoffs', description: 'Evidence-backed handoff packets between team members' },
     { name: 'entity_aliases', description: 'Search alias mappings' },
     { name: 'settings', description: 'Key-value settings store' },
     { name: 'prospects', description: 'Sales prospects (CRM)' },

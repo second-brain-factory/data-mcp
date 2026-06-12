@@ -13,7 +13,7 @@
  *     issue-1260: writes must work immediately after setup_migrate with no
  *     external mkdir) and writes a .gitignore covering _archive/ so
  *     soft-deleted records never reach a shared team repo (0.7.4)
- *  1. Server boots from local build, version matches package.json, 41 tools
+ *  1. Server boots from local build, version matches package.json, 44 tools
  *  2. Private knowledge written by alice is invisible to bob
  *  3. Shared knowledge written by alice is visible to bob
  *  4. owner_scope filter on recall (private vs shared)
@@ -22,6 +22,9 @@
  *  7. brain_stats sees only the caller's visible records
  *  8. Search stemming + any-term fallback (issue #1297): inflected and
  *     multi-word queries find items; exact-match queries unchanged
+ *  9. Handoff packets (issue #9): alice hands off to bob with evidence
+ *     fields, bob lists/accepts/completes, private-to-other rejected,
+ *     third-member visibility rules hold
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -99,7 +102,7 @@ console.log('\n[1] Boot + tool surface');
 const sv = alice.getServerVersion();
 check(`server version matches package.json (${PKG_VERSION})`, sv?.version === PKG_VERSION, `got ${sv?.version}`);
 const tools = (await alice.listTools()).tools;
-check('41 tools registered', tools.length === 41, `got ${tools.length}`);
+check('44 tools registered', tools.length === 44, `got ${tools.length}`);
 const learnTool = tools.find((t) => t.name === 'knowledge_learn');
 check('knowledge_learn exposes owner_scope param', JSON.stringify(learnTool?.inputSchema ?? {}).includes('owner_scope'));
 
@@ -207,6 +210,50 @@ check('verb-inflected multi-word query finds item', JSON.stringify(verbed).inclu
 // 8e. Garbage query still returns zero (fallback does not hallucinate matches)
 const garbage = await call(alice, 'knowledge_recall', { query: 'zzqx flibbertigibbet' });
 check('nonsense query returns no results', (garbage.total ?? -1) === 0, JSON.stringify(garbage).slice(0, 200));
+
+// --- 9. Handoff packets (issue #9) ---
+console.log('\n[9] Handoff packets');
+const handoff = await call(alice, 'handoff_create', {
+  title: 'E2E: webhook retry investigation',
+  to_member: 'bob',
+  what_changed: 'Narrowed failure to the retry path; reproducer in scripts/repro.sh',
+  tried: [{ approach: 'replay original event', outcome: 'still 500 — not payload-dependent' }],
+  assumptions: ['idempotency keys are unique per attempt'],
+  blocked_on: 'need prod log access',
+  next_steps: ['check Stripe API version pinning'],
+  needs_verification: ['confirm the reproducer still fails on main'],
+  recheck_by: '2026-07-01',
+});
+const handoffId = handoff.item?.id;
+check('alice creates handoff for bob (shared by default)', Boolean(handoffId), JSON.stringify(handoff).slice(0, 300));
+
+const bobInbox = await call(bob, 'handoff_list', { to_member: 'me', status: 'open' });
+const bobInboxStr = JSON.stringify(bobInbox);
+check('bob sees the open handoff via to_member "me"', bobInboxStr.includes('webhook retry investigation'), bobInboxStr.slice(0, 300));
+check('packet evidence fields intact (tried + needs_verification)', bobInboxStr.includes('not payload-dependent') && bobInboxStr.includes('reproducer still fails'), bobInboxStr.slice(0, 400));
+
+if (handoffId) {
+  const accepted = await call(bob, 'handoff_update', { id: handoffId, status: 'accepted' });
+  check('bob accepts: accepted_at stamped', typeof accepted.item?.accepted_at === 'string' && accepted.item.accepted_at.length > 0, JSON.stringify(accepted).slice(0, 300));
+  const completed = await call(bob, 'handoff_update', { id: handoffId, status: 'completed' });
+  check('bob completes: completed_at stamped', typeof completed.item?.completed_at === 'string', JSON.stringify(completed).slice(0, 300));
+  const aliceView = await call(alice, 'handoff_list', { status: 'completed' });
+  check('alice sees the handoff completed', JSON.stringify(aliceView).includes('webhook retry investigation'), JSON.stringify(aliceView).slice(0, 300));
+}
+
+const privateToOther = await call(alice, 'handoff_create', {
+  title: 'E2E: should be rejected', to_member: 'bob', owner_scope: 'private',
+});
+const privRejStr = JSON.stringify(privateToOther);
+check('private handoff to another member is rejected', privRejStr.includes('invisible') || privRejStr.includes('error'), privRejStr.slice(0, 300));
+
+const selfNote = await call(alice, 'handoff_create', {
+  title: 'E2E: alice self-handoff note', to_member: 'alice', owner_scope: 'private',
+});
+check('private self-handoff allowed', selfNote.created === true, JSON.stringify(selfNote).slice(0, 300));
+
+const bobHandoffs = await call(bob, 'handoff_list', {});
+check('bob cannot see alice private self-handoff', !JSON.stringify(bobHandoffs).includes('self-handoff note'), JSON.stringify(bobHandoffs).slice(0, 300));
 
 // --- summary ---
 console.log(`\n${'='.repeat(50)}\nRESULT: ${pass} passed, ${fail} failed`);

@@ -79,5 +79,12 @@ export interface DataAdapter {
     /** List all collection names */
     listCollections(): Promise<string[]>;
     readonly ownerScopeEnabled?: boolean;
+    /**
+     * The current member's owner id (optional capability).
+     * Set by OwnerScopeProxy from MEMORYOS_OWNER_ID so tools can resolve
+     * "me" (e.g. handoff_list) and validate recipient-vs-scope combinations
+     * (e.g. handoff_create rejecting a private handoff to another member).
+     */
+    readonly currentOwnerId?: string;
 }
 //# sourceMappingURL=types.d.ts.map
