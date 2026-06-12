@@ -1,0 +1,10 @@
+From: Deals Weekly <noreply@deals.example.com>
+To: ana@example.com
+Subject: BULK-MAIL-MARKER 50% off everything this week only!
+Date: Wed, 12 Jun 2024 06:00:00 +0000
+Message-ID: <newsletter1@deals.example.com>
+List-Unsubscribe: <https://deals.example.com/unsub?u=123>
+Precedence: bulk
+Content-Type: text/plain; charset=utf-8
+
+Huge savings inside! BULK-MAIL-MARKER. Click now before it's gone.

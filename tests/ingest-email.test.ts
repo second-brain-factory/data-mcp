@@ -171,3 +171,193 @@ describe('splitMultipart edge cases', () => {
         expect(splitMultipart('no boundaries here', 'B')).toEqual([]);
     });
 });
+
+// ---------------------------------------------------------------------------
+// Slice 2: thread grouping, quote trimming, .eml runner integration
+// ---------------------------------------------------------------------------
+import { readFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { DataAdapter, Filter, ListResult } from '../src/adapter/types.js';
+import { groupEmailThreads, normalizeSubject, trimQuotedReplies } from '../src/ingest/email/threads.js';
+import { runIngest } from '../src/ingest/runner.js';
+
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ingest-email');
+
+function makeMemoryAdapter() {
+    const records: Array<Record<string, unknown>> = [];
+    const adapter = {
+        backend: 'markdown',
+        async create(_collection: string, data: Record<string, unknown>) {
+            const rec = { id: `r${records.length + 1}`, ...data };
+            records.push(rec);
+            return rec;
+        },
+        async getOne(_c: string, id: string) { return { id }; },
+        async list(_collection: string, options?: { filter?: Filter }): Promise<ListResult<Record<string, unknown>>> {
+            const groups = options?.filter ?? [];
+            const items = records.filter((r) =>
+                groups.length === 0 || groups.some((clauses) => clauses.every((c) => r[c.field] === c.value)));
+            return { items, totalItems: items.length, page: 1, perPage: 20 };
+        },
+        async textSearch() { return []; },
+        async update(_c: string, id: string, data: Record<string, unknown>) { return { id, ...data }; },
+        async delete() { },
+        ownerScopeEnabled: false,
+    } as unknown as DataAdapter;
+    return { adapter, records };
+}
+
+describe('normalizeSubject (AC3)', () => {
+    it('strips stacked Re:/Fwd:/Fw: prefixes case-insensitively', () => {
+        expect(normalizeSubject('Re: Fwd: RE: Budget plan')).toBe('budget plan');
+        expect(normalizeSubject('FW: hello')).toBe('hello');
+        expect(normalizeSubject('Re[2]: hello')).toBe('hello');
+        expect(normalizeSubject('Plain subject')).toBe('plain subject');
+    });
+});
+
+describe('trimQuotedReplies (AC4)', () => {
+    it('drops multi-line quoted blocks and their attribution line', () => {
+        const body = `Agreed, ship it.\n\nOn Mon, Jun 10, 2024 Ana wrote:\n> first quoted line\n> second quoted line\n> third quoted line`;
+        const trimmed = trimQuotedReplies(body);
+        expect(trimmed).toBe('Agreed, ship it.');
+    });
+
+    it('keeps single-line inline quotes', () => {
+        const body = `> should we delay?\nNo, we ship Friday.`;
+        expect(trimQuotedReplies(body)).toContain('> should we delay?');
+        expect(trimQuotedReplies(body)).toContain('No, we ship Friday.');
+    });
+});
+
+describe('groupEmailThreads (AC3, AC4, AC5)', () => {
+    const mail = (over: Record<string, unknown>) => ({
+        messageId: null, inReplyTo: null, references: [], subject: '', from: 'a@x', to: 'b@x',
+        date: undefined, body: 'body', attachments: [], isBulk: false, ...over,
+    });
+
+    it('groups References chains into one thread record', () => {
+        const { items } = groupEmailThreads([
+            mail({ messageId: 'm1', subject: 'Plan', body: 'v1', date: '2024-01-01T00:00:00.000Z' }),
+            mail({ messageId: 'm2', references: ['m1'], subject: 'Re: Plan', body: 'v2', date: '2024-01-02T00:00:00.000Z' }),
+            mail({ messageId: 'm3', inReplyTo: 'm2', subject: 'Re: Plan', body: 'v3', date: '2024-01-03T00:00:00.000Z' }),
+        ]);
+        expect(items).toHaveLength(1);
+        expect(items[0].title).toBe('Plan');
+        expect(items[0].content).toContain('v1');
+        expect(items[0].content).toContain('v3');
+        expect((items[0].source_meta as Record<string, unknown>).message_count).toBe(3);
+    });
+
+    it('falls back to normalized subject when References point outside the archive', () => {
+        const { items } = groupEmailThreads([
+            mail({ messageId: 'a1', subject: 'Quarterly numbers', body: 'q1', date: '2024-01-01T00:00:00.000Z' }),
+            mail({ messageId: 'a2', inReplyTo: 'missing-id', subject: 'RE: Quarterly numbers', body: 'q2', date: '2024-01-02T00:00:00.000Z' }),
+        ]);
+        expect(items).toHaveLength(1);
+    });
+
+    it('skips bulk mail by default and reports indices; includeBulk keeps it', () => {
+        const input = [
+            mail({ subject: 'Newsletter', isBulk: true }),
+            mail({ subject: 'Real mail' }),
+        ];
+        const skipped = groupEmailThreads(input);
+        expect(skipped.items).toHaveLength(1);
+        expect(skipped.items[0].title).toBe('Real mail');
+        expect(skipped.bulkIndices).toEqual([0]);
+        const kept = groupEmailThreads(input, { includeBulk: true });
+        expect(kept.items).toHaveLength(2);
+    });
+
+    it('drops duplicate Message-IDs within a batch', () => {
+        const { items } = groupEmailThreads([
+            mail({ messageId: 'dup', subject: 'Once' }),
+            mail({ messageId: 'dup', subject: 'Once' }),
+        ]);
+        expect(items).toHaveLength(1);
+    });
+
+    it('records participants and date_range in source_meta (AC8 groundwork)', () => {
+        const { items } = groupEmailThreads([
+            mail({ messageId: 'p1', subject: 'Sync', from: 'Ana <ana@x.com>', to: 'bo@y.org', date: '2024-01-01T00:00:00.000Z' }),
+            mail({ messageId: 'p2', inReplyTo: 'p1', subject: 'Re: Sync', from: 'bo@y.org', to: 'ana@x.com', date: '2024-02-01T00:00:00.000Z' }),
+        ]);
+        const meta = items[0].source_meta as Record<string, unknown>;
+        expect(meta.participants).toEqual(expect.arrayContaining(['ana@x.com', 'bo@y.org']));
+        expect((meta.date_range as Record<string, string>).from).toBe('2024-01-01T00:00:00.000Z');
+        expect((meta.date_range as Record<string, string>).to).toBe('2024-02-01T00:00:00.000Z');
+    });
+
+    it('never emits an empty record when trimming would erase a message', () => {
+        const { items } = groupEmailThreads([
+            mail({ messageId: 'q1', subject: 'T', body: 'original text here', date: '2024-01-01T00:00:00.000Z' }),
+            mail({ messageId: 'q2', inReplyTo: 'q1', subject: 'Re: T', body: '> original text here\n> second line', date: '2024-01-02T00:00:00.000Z' }),
+        ]);
+        expect(items).toHaveLength(1);
+        // the all-quote reply degrades to its untrimmed body rather than vanishing silently
+        expect(items[0].content.length).toBeGreaterThan(0);
+    });
+});
+
+describe('runIngest .eml directory mode (AC4, AC5, AC6)', () => {
+    it('threads across files, trims quotes, skips bulk, records attachments', async () => {
+        const { adapter, records } = makeMemoryAdapter();
+        const summary = await runIngest(adapter, { path: join(FIXTURES, 'eml'), dryRun: false });
+
+        expect(summary.files_scanned).toBe(5);
+        expect(summary.files_errored).toBe(0);
+        // contract thread (3 files -> 1 record) + offsite = 2 records
+        expect(summary.records_created).toBe(2);
+
+        const thread = records.find((r) => r.title === 'Vendor contract renewal');
+        expect(thread).toBeDefined();
+        const content = thread!.content as string;
+        expect(content).toContain('Agreed at 16k for two years');
+        // AC4: quoted duplicate appears at most once (original message only)
+        expect(content.split('QUOTED-DUPLICATE-MARKER').length - 1).toBeLessThanOrEqual(1);
+        expect(thread!.source).toBe('ingest:eml');
+
+        // AC5: bulk newsletter not ingested by default
+        expect(records.some((r) => (r.content as string).includes('BULK-MAIL-MARKER'))).toBe(false);
+        const bulkReport = summary.reports.find((r) => r.path.endsWith('newsletter.eml'));
+        expect(bulkReport?.status).toBe('skipped_unsupported');
+        expect(bulkReport?.error).toContain('include_bulk');
+
+        // encoded-word headers decoded into the offsite record
+        const offsite = records.find((r) => (r.title as string).includes('Café team offsite'));
+        expect(offsite).toBeDefined();
+        expect((offsite!.content as string)).toContain('confirmé: Lyon');
+        const meta = offsite!.metadata as Record<string, unknown>;
+        expect(meta.attachments).toEqual(['venue-quote.pdf']);
+    });
+
+    it('include_bulk ingests the newsletter', async () => {
+        const { adapter, records } = makeMemoryAdapter();
+        await runIngest(adapter, { path: join(FIXTURES, 'eml'), dryRun: false, includeBulk: true });
+        expect(records.some((r) => (r.content as string).includes('BULK-MAIL-MARKER'))).toBe(true);
+    });
+
+    it('single .eml file mode works (AC6)', async () => {
+        const { adapter, records } = makeMemoryAdapter();
+        const summary = await runIngest(adapter, { path: join(FIXTURES, 'eml', 'offsite.eml'), dryRun: false });
+        expect(summary.records_created).toBe(1);
+        expect(records[0].title).toContain('Café team offsite');
+    });
+
+    it('re-ingest is idempotent', async () => {
+        const { adapter } = makeMemoryAdapter();
+        await runIngest(adapter, { path: join(FIXTURES, 'eml'), dryRun: false });
+        const again = await runIngest(adapter, { path: join(FIXTURES, 'eml'), dryRun: false });
+        expect(again.records_created).toBe(0);
+        expect(again.records_deduplicated).toBeGreaterThan(0);
+    });
+
+    it('dry-run previews without writing', async () => {
+        const { adapter, records } = makeMemoryAdapter();
+        const summary = await runIngest(adapter, { path: join(FIXTURES, 'eml'), dryRun: true });
+        expect(summary.records_created).toBe(2);
+        expect(records).toHaveLength(0);
+    });
+});

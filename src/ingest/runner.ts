@@ -14,8 +14,10 @@ import { createHash } from 'node:crypto';
 import { join, resolve, sep, basename, extname, relative } from 'node:path';
 import type { DataAdapter, FilterClause } from '../adapter/types.js';
 import type { IngestItem, IngestContext, FileReport, FileStatus, IngestSummary } from './types.js';
-import { detectFormat, detectConvertedFormat, refineJsonFormat, refinePathFormat, looksBinary, stripBom } from './detect.js';
+import { detectFormat, detectConvertedFormat, detectEmailFormat, refineJsonFormat, refinePathFormat, looksBinary, stripBom } from './detect.js';
 import { detectExportKind, buildSlackUserMap, SLACK_METADATA_FILES, SLACK_DAY_FILE, type ExportContext } from './export-context.js';
+import { parseEmailMessage, type ParsedEmail } from './email/mime.js';
+import { groupEmailThreads } from './email/threads.js';
 import { PARSER_REGISTRY } from './registry.js';
 import { parseOffice } from './parsers/office.js';
 import { createConverter, sanitizeConverted, INSTALL_HINT, type Converter } from './convert.js';
@@ -50,6 +52,8 @@ export interface IngestOptions {
     forbiddenRoots?: string[];
     /** Office-document converter (injectable for tests; default markitdown sidecar) */
     converter?: Converter;
+    /** Ingest bulk mail (List-Unsubscribe / Precedence: bulk) — default false (issue #20) */
+    includeBulk?: boolean;
 }
 
 /** sha256 of normalized (trimmed) content */
@@ -304,6 +308,87 @@ async function processFile(
     }
 }
 
+/**
+ * Email batch (issue #20): parse each .eml with per-file error isolation,
+ * thread-group across the whole batch (D3), write one record per thread,
+ * and attribute every record to its thread's oldest message's file so
+ * per-file reports stay meaningful. Bulk mail is skipped by default
+ * (skipped_unsupported with reason) unless opts.includeBulk.
+ */
+async function processEmailBatch(
+    adapter: DataAdapter,
+    files: string[],
+    opts: IngestOptions,
+    seenTitles: Set<string>,
+): Promise<FileReport[]> {
+    const reports = new Map<string, FileReport>();
+    const emails: ParsedEmail[] = [];
+    const sources: string[] = []; // parallel to emails
+    for (const filePath of files) {
+        const report: FileReport = { path: filePath, format: 'eml', status: 'skipped_empty', records: 0, duplicates: 0 };
+        reports.set(filePath, report);
+        try {
+            const stat = await fs.stat(filePath);
+            if (stat.size > MAX_FILE_BYTES) {
+                report.status = 'skipped_too_large';
+                continue;
+            }
+            const buffer = await fs.readFile(filePath);
+            if (looksBinary(buffer.subarray(0, 8192))) {
+                report.status = 'skipped_unsupported';
+                report.error = 'binary content';
+                continue;
+            }
+            emails.push(parseEmailMessage(stripBom(buffer.toString('utf8'))));
+            sources.push(filePath);
+        } catch (error) {
+            report.status = 'error';
+            report.error = error instanceof Error ? error.message : String(error);
+        }
+    }
+
+    const { items, origins, bulkIndices } = groupEmailThreads(emails, { includeBulk: opts.includeBulk ?? false });
+    for (const idx of bulkIndices) {
+        const report = reports.get(sources[idx])!;
+        if (report.status === 'skipped_empty') {
+            report.status = 'skipped_unsupported';
+            report.error = 'bulk mail (List-Unsubscribe/Precedence) — pass include_bulk to ingest';
+        }
+    }
+
+    const outcomes = new Map<string, ItemOutcome>();
+    for (let i = 0; i < items.length; i++) {
+        const sourcePath = sources[origins[i]];
+        let outcome = outcomes.get(sourcePath);
+        if (!outcome) {
+            outcome = { created: 0, duplicates: 0, changed: 0 };
+            outcomes.set(sourcePath, outcome);
+        }
+        const hash = contentHash(items[i].content);
+        await writeItem(adapter, items[i], hash, 'eml', sourcePath, opts, seenTitles, outcome);
+    }
+
+    for (const [sourcePath, outcome] of outcomes) {
+        const report = reports.get(sourcePath)!;
+        report.records = outcome.created;
+        report.duplicates = outcome.duplicates;
+        if (outcome.changed > 0) report.error = `${outcome.changed} record(s) changed since last ingest — not updated (use knowledge_update)`;
+        report.status = outcome.created > 0 ? (opts.dryRun ? 'dry_run' : 'created') : 'skipped_duplicate';
+    }
+    // Files whose messages merged into a thread attributed elsewhere
+    const originSet = new Set(origins.map((o) => sources[o]));
+    const bulkSet = new Set(bulkIndices);
+    for (let i = 0; i < emails.length; i++) {
+        const report = reports.get(sources[i])!;
+        if (report.status !== 'skipped_empty' || bulkSet.has(i) || originSet.has(sources[i])) continue;
+        if (emails[i].body.trim().length > 0 || emails[i].subject.trim().length > 0) {
+            report.status = 'skipped_duplicate';
+            report.error = 'merged into a thread record from another file';
+        }
+    }
+    return files.map((f) => reports.get(f)!);
+}
+
 /** Execute an ingest run. Per-file errors never abort the batch. */
 export async function runIngest(adapter: DataAdapter, opts: IngestOptions): Promise<IngestSummary> {
     const target = resolve(opts.path);
@@ -345,8 +430,19 @@ export async function runIngest(adapter: DataAdapter, opts: IngestOptions): Prom
     const converter = opts.converter ?? createConverter();
     const seenTitles = new Set<string>();
     const reports: FileReport[] = [];
+    const emailFiles: string[] = [];
     for (const file of files) {
+        // Email archives (issue #20) batch across files: threads group
+        // ACROSS .eml files (approved deviation D3), so they are collected
+        // here and processed together after the per-file loop.
+        if (detectEmailFormat(file) === 'eml') {
+            emailFiles.push(file);
+            continue;
+        }
         reports.push(await processFile(adapter, file, target, exportCtx, opts, seenTitles, converter));
+    }
+    if (emailFiles.length > 0) {
+        reports.push(...await processEmailBatch(adapter, emailFiles, opts, seenTitles));
     }
 
     const count = (statuses: FileStatus[]) => reports.filter((r) => statuses.includes(r.status)).length;

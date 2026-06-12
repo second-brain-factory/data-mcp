@@ -44,6 +44,21 @@ export function detectConvertedFormat(filePath: string): string | null {
 }
 
 /**
+ * Email archive formats (issue #20). Processed as a runner-level BATCH —
+ * not registry parsers — because threads group ACROSS .eml files and mbox
+ * needs streaming I/O. `.mbox` extension is required for mbox (approved
+ * deviation D4; Thunderbird folder files must be renamed).
+ */
+const EMAIL_EXTENSION_MAP: Record<string, 'eml' | 'mbox'> = {
+    '.eml': 'eml',
+};
+
+/** Map a file path to an email format id, or null. */
+export function detectEmailFormat(filePath: string): 'eml' | 'mbox' | null {
+    return EMAIL_EXTENSION_MAP[extname(filePath).toLowerCase()] ?? null;
+}
+
+/**
  * Refine a generic `json` detection into a chat-export format (issue #18).
  * Pure string heuristic on a bounded prefix — exports can be 100MB+, so we
  * never JSON.parse here; the vendor parsers do strict validation and any
