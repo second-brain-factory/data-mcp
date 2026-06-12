@@ -5,6 +5,8 @@
 export declare function detectFormat(filePath: string): string | null;
 /** Map a file path to a converted (office) format id, or null. */
 export declare function detectConvertedFormat(filePath: string): string | null;
+/** Map a file path to an email format id, or null. */
+export declare function detectEmailFormat(filePath: string): 'eml' | 'mbox' | null;
 /**
  * Refine a generic `json` detection into a chat-export format (issue #18).
  * Pure string heuristic on a bounded prefix — exports can be 100MB+, so we

@@ -1,0 +1,14 @@
+From: Marco Rossi <marco@example.com>
+To: Ana Garcia <ana@example.com>
+Subject: Re: Vendor contract renewal
+Date: Mon, 10 Jun 2024 11:30:00 +0000
+Message-ID: <thread1-msg2@example.com>
+In-Reply-To: <thread1-msg1@example.com>
+References: <thread1-msg1@example.com>
+Content-Type: text/plain; charset=utf-8
+
+Negotiate. QUOTED-DUPLICATE-MARKER should never appear twice in the record.
+
+On Mon, 10 Jun 2024 at 09:00, Ana Garcia wrote:
+> Marco, the CloudHost contract expires June 30. They quoted 18k for renewal,
+> up from 15k. Do we negotiate or switch? QUOTED-DUPLICATE-MARKER

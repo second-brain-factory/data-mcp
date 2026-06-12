@@ -1,0 +1,19 @@
+From: =?UTF-8?Q?Ren=C3=A9_Dubois?= <rene@example.fr>
+To: team@example.com
+Subject: =?UTF-8?Q?Caf=C3=A9_team_offsite_=E2=80=94_d=C3=A9cision?=
+Date: Wed, 12 Jun 2024 14:00:00 +0200
+Message-ID: <standalone1@example.fr>
+Content-Type: multipart/mixed; boundary="MIX1"
+
+--MIX1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Offsite confirm=C3=A9: Lyon, 12-14 September. Budget 6k approved.
+--MIX1
+Content-Type: application/pdf; name="venue-quote.pdf"
+Content-Disposition: attachment; filename="venue-quote.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJSBmYWtlIHBkZg==
+--MIX1--

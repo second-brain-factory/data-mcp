@@ -24,6 +24,11 @@ export declare const EXPORT_MAX_FILES = 2000;
  * exceeds 10MB, so files with that exact name get a dedicated cap.
  */
 export declare const CHAT_EXPORT_MAX_BYTES: number;
+/**
+ * mbox sanity cap (issue #20). Streamed — never loaded whole — so the cap
+ * is a guard against pathological inputs, not a memory bound.
+ */
+export declare const MBOX_MAX_BYTES: number;
 export interface IngestOptions {
     /** File or directory to ingest (absolute or cwd-relative) */
     path: string;
@@ -35,6 +40,8 @@ export interface IngestOptions {
     forbiddenRoots?: string[];
     /** Office-document converter (injectable for tests; default markitdown sidecar) */
     converter?: Converter;
+    /** Ingest bulk mail (List-Unsubscribe / Precedence: bulk) — default false (issue #20) */
+    includeBulk?: boolean;
 }
 /** sha256 of normalized (trimmed) content */
 export declare function contentHash(content: string): string;

@@ -1,0 +1,78 @@
+From ana@example.com Mon Jun 10 09:00:00 2024
+From: Ana Garcia <ana@example.com>
+To: Marco Rossi <marco@example.com>
+Subject: API redesign kickoff
+Date: Mon, 10 Jun 2024 09:00:00 +0000
+Message-ID: <mbox-t1-m1@example.com>
+Content-Type: text/plain; charset=utf-8
+
+Kicking off the API redesign. Proposal: v2 keeps REST, adds cursor pagination.
+
+>From a memory standpoint we should also cap payload sizes.
+
+From marco@example.com Mon Jun 10 14:00:00 2024
+From: Marco Rossi <marco@example.com>
+To: Ana Garcia <ana@example.com>
+Subject: Re: API redesign kickoff
+Date: Mon, 10 Jun 2024 14:00:00 +0000
+Message-ID: <mbox-t1-m2@example.com>
+In-Reply-To: <mbox-t1-m1@example.com>
+References: <mbox-t1-m1@example.com>
+Content-Type: text/plain; charset=utf-8
+
+Agreed on cursor pagination. MBOX-TRIM-MARKER must appear exactly once.
+
+On Mon, 10 Jun 2024 at 09:00, Ana Garcia wrote:
+> Kicking off the API redesign. Proposal: v2 keeps REST, adds cursor pagination. MBOX-TRIM-MARKER
+> From a memory standpoint we should also cap payload sizes.
+
+From rene@example.fr Tue Jun 11 10:00:00 2024
+From: =?UTF-8?B?UmVuw6kgRHVib2lz?= <rene@example.fr>
+To: team@example.com
+Subject: =?UTF-8?Q?R=C3=A9union_budget_2025?=
+Date: Tue, 11 Jun 2024 10:00:00 +0200
+Message-ID: <mbox-t2-m1@example.fr>
+Content-Type: multipart/alternative; boundary="ALT9"
+
+--ALT9
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Budget valid=E9: 120k pour 2025, r=E9parti sur deux trimestres.
+--ALT9
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>HTML version should lose to plain</p></body></html>
+--ALT9--
+
+From hr@example.com Tue Jun 11 16:00:00 2024
+From: HR Team <hr@example.com>
+To: all@example.com
+Subject: Holiday schedule
+Date: Tue, 11 Jun 2024 16:00:00 +0000
+Message-ID: <mbox-t3-m1@example.com>
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Office closed August 15. HTML-ONLY-BODY plan accordingly.</p></body></html>
+
+From noreply@spam.example.com Wed Jun 12 06:00:00 2024
+From: Mega Deals <noreply@spam.example.com>
+To: ana@example.com
+Subject: MBOX-BULK-MARKER unbeatable offers
+Date: Wed, 12 Jun 2024 06:00:00 +0000
+Message-ID: <mbox-bulk-m1@example.com>
+List-Unsubscribe: <https://spam.example.com/u>
+Content-Type: text/plain; charset=utf-8
+
+Spam content MBOX-BULK-MARKER click here.
+
+From b64@example.com Wed Jun 12 09:00:00 2024
+From: Build Bot <b64@example.com>
+To: dev@example.com
+Subject: Release notes draft
+Date: Wed, 12 Jun 2024 09:00:00 +0000
+Message-ID: <mbox-t4-m1@example.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+
+QmFzZTY0IGJvZHk6IHJlbGVhc2UgMy4yIHNoaXBzIFR1ZXNkYXku

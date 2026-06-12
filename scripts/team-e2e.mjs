@@ -30,6 +30,8 @@
  *     brain-root ingestion refused
  * 11. LLM chat exports (issue #18): ChatGPT + Claude conversations.json
  * 12. Workspace exports (issue #19): Notion, Slack, Keep, Evernote ENEX
+ * 13. Email archives (issue #20): mbox + .eml thread records, quote
+ *     trimming, bulk-mail skip, idempotent re-ingest
  *     ingest by shape detection, conversations recallable by topic,
  *     regenerated branches excluded, re-ingest idempotent
  */
@@ -334,6 +336,30 @@ check('archived keep note NOT ingested', !(keepGone.results ?? []).some((r) => `
 
 const wsRerun = await call(alice, 'ingest', { path: join(WS_FIXTURES, 'notion'), dry_run: false });
 check('workspace export re-ingest is idempotent', (wsRerun.records_created ?? -1) === 0 && (wsRerun.records_deduplicated ?? 0) > 0, JSON.stringify(wsRerun).slice(0, 300));
+
+// --- 13. Email archives (issue #20) ---
+console.log('\n[13] Email archives');
+const EMAIL_FIXTURES = join(REPO_ROOT, 'tests', 'fixtures', 'ingest-email');
+
+const mboxRun = await call(alice, 'ingest', { path: join(EMAIL_FIXTURES, 'archive.mbox'), dry_run: false });
+check('mbox ingests thread records with zero errors', (mboxRun.files_errored ?? 1) === 0 && (mboxRun.records_created ?? 0) === 4, JSON.stringify(mboxRun).slice(0, 300));
+
+const emlRun = await call(alice, 'ingest', { path: join(EMAIL_FIXTURES, 'eml'), dry_run: false });
+check('eml directory threads across files', (emlRun.files_errored ?? 1) === 0 && (emlRun.records_created ?? 0) === 2, JSON.stringify(emlRun).slice(0, 300));
+
+const threadRecall = await call(alice, 'knowledge_recall', { query: 'CloudHost contract renewal negotiate' });
+const threadHit = (threadRecall.results ?? []).find((r) => r.title === 'Vendor contract renewal');
+check('email thread recallable with full chronology', !!threadHit && threadHit.content.includes('Agreed at 16k for two years'), JSON.stringify(threadHit ?? threadRecall).slice(0, 300));
+
+const trimRecall = await call(alice, 'knowledge_recall', { query: 'API redesign cursor pagination' });
+const trimHit = (trimRecall.results ?? []).find((r) => r.title === 'API redesign kickoff');
+check('quoted replies trimmed (marker appears once)', !!trimHit && (trimHit.content.split('MBOX-TRIM-MARKER').length - 1) === 1, JSON.stringify(trimHit ?? trimRecall).slice(0, 300));
+
+const bulkRecall = await call(alice, 'knowledge_recall', { query: 'MBOX-BULK-MARKER unbeatable offers' });
+check('bulk mail NOT ingested by default', !(bulkRecall.results ?? []).some((r) => `${r.title}\n${r.content}`.includes('BULK-MARKER')), JSON.stringify(bulkRecall).slice(0, 200));
+
+const mboxRerun = await call(alice, 'ingest', { path: join(EMAIL_FIXTURES, 'archive.mbox'), dry_run: false });
+check('email archive re-ingest is idempotent', (mboxRerun.records_created ?? -1) === 0 && (mboxRerun.records_deduplicated ?? 0) === 4, JSON.stringify(mboxRerun).slice(0, 300));
 
 // --- summary ---
 console.log(`\n${'='.repeat(50)}\nRESULT: ${pass} passed, ${fail} failed`);

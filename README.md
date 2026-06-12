@@ -185,6 +185,24 @@ Exact-match queries are unaffected; fallback responses include
   — labels become tags, archived/trashed notes skipped (Takeout Docs in
   `.docx`/`.html` route through the office/HTML paths above); *Evernote*
   `.enex` — one record per note with tags and dates, no XML dependency.
+  **Email archives** (`.mbox` + `.eml`): Gmail Takeout and Thunderbird
+  mboxes are stream-parsed (multi-GB files never load into memory) into
+  one record per thread — messages grouped by `References`/`In-Reply-To`
+  with a normalized-subject fallback (`Re:`/`Fwd:` variants land in one
+  record), chronological order, quoted-reply blocks trimmed so content
+  appears once. MIME handling prefers `text/plain`, falls back to
+  tag-stripped HTML, decodes base64/quoted-printable bodies and RFC 2047
+  non-ASCII headers; attachment content is skipped (filenames kept in
+  `metadata.attachments`). Bulk mail (List-Unsubscribe / `Precedence:
+  bulk`) is skipped by default — pass `include_bulk: true` to keep it.
+  Directories of `.eml` files thread-group within one ingest run.
+  Thunderbird stores folders as extensionless mbox files — rename to
+  `<name>.mbox` before ingesting. For a fresh Gmail archive without
+  Takeout, run [got-your-back](https://github.com/GAM-team/got-your-back)
+  and ingest the mbox it produces. *Privacy note:* participants' email
+  addresses are stored in record metadata and message content is stored
+  faithfully; ingested email inherits `owner_scope` (default `private`) —
+  keep email private in team mode unless the thread is genuinely shared.
   Recurses directories (skips dotfiles, binaries,
   `node_modules`; capped at
   200 files — raised to 2000 inside a recognized workspace export), splits
