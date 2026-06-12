@@ -5,7 +5,7 @@
  * html-only fallback, attachment skipping, bulk detection.
  */
 import { describe, it, expect } from 'vitest';
-import { parseEmailMessage, decodeEncodedWords, splitMultipart, MAX_BODY_CHARS, MAX_HEADER_CHARS } from '../src/ingest/email/mime.js';
+import { parseEmailMessage, decodeEncodedWords, splitMultipart, MAX_BODY_CHARS, MAX_HEADER_CHARS, MAX_REFERENCES } from '../src/ingest/email/mime.js';
 
 const CRLF = (s: string) => s.replace(/\n/g, '\r\n');
 
@@ -525,6 +525,13 @@ describe('adversarial-input hardening (issue-20 review findings)', () => {
         const { items } = groupEmailThreads([{ ...email, from: padded }]);
         expect(performance.now() - start).toBeLessThan(500);
         expect(items[0].content).toContain('A');
+    });
+
+    it('caps retained References IDs at MAX_REFERENCES (keeps the most recent)', () => {
+        const refs = Array.from({ length: 500 }, (_, i) => `<r${i}@x>`).join(' ');
+        const mail = parseEmailMessage(`Subject: t\nReferences: ${refs}\n\nbody`);
+        expect(mail.references).toHaveLength(MAX_REFERENCES);
+        expect(mail.references[mail.references.length - 1]).toBe('r499@x');
     });
 
     it('caps retained subject/from/to headers at MAX_HEADER_CHARS', () => {

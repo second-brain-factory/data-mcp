@@ -66,6 +66,11 @@ export declare function splitMultipart(body: string, boundary: string): string[]
  * pathological inputs to downstream string work (review issue-20 #3 note).
  */
 export declare const MAX_HEADER_CHARS = 1024;
+/** Max message-IDs retained from a References header. Deep threads rarely
+ * exceed a few dozen; threading only needs SOME shared ID, and the most
+ * recent ancestors are likeliest to be in the same archive. Caps retention
+ * for pathological multi-MB References headers. */
+export declare const MAX_REFERENCES = 50;
 /**
  * Parse one raw RFC 2822 message (headers + MIME body) into a ParsedEmail.
  * Pure; never does I/O. Throws only on truly unprocessable input — callers

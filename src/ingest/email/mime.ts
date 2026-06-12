@@ -232,10 +232,17 @@ export function splitMultipart(body: string, boundary: string): string[] {
  */
 export const MAX_HEADER_CHARS = 1024;
 
+/** Max message-IDs retained from a References header. Deep threads rarely
+ * exceed a few dozen; threading only needs SOME shared ID, and the most
+ * recent ancestors are likeliest to be in the same archive. Caps retention
+ * for pathological multi-MB References headers. */
+export const MAX_REFERENCES = 50;
+
 /** Extract `<id>` tokens from a References/In-Reply-To header value. */
 function messageIds(value: string | undefined): string[] {
     if (!value) return [];
-    return [...value.matchAll(/<([^<>]+)>/g)].map((m) => m[1]);
+    const ids = [...value.matchAll(/<([^<>]+)>/g)].map((m) => m[1]);
+    return ids.length > MAX_REFERENCES ? ids.slice(-MAX_REFERENCES) : ids;
 }
 
 /** Normalize an RFC 2822 Date header to ISO, or undefined. */
