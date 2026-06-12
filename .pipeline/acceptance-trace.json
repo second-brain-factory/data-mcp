@@ -1,0 +1,26 @@
+{
+  "issue": "issue-9",
+  "title": "Evidence-backed handoff packets (handoffs collection + 3 MCP tools, 41→44)",
+  "plan": "plans/issue-9-handoff-packets.md",
+  "verified_at": "2026-06-12",
+  "success_invariant": "A member can hand off work with full investigation context; the recipient sees it via to_member 'me'; privacy rules hold at both MCP and database (RLS) level",
+  "criteria": [
+    {"slice": 1, "criterion": "Migration 012 + PB 009 mirror written; handoffs in DEFAULT_SCOPED_COLLECTIONS, EXPECTED_COLLECTIONS, COLLECTION_SCHEMAS", "status": "pass", "evidence": "migrations/supabase/012_handoffs.sql, migrations/pocketbase/009_handoffs.js, src/adapter/owner-scope.ts, src/tools/setup/setup-status.ts, src/tools/setup/setup-migrate.ts"},
+    {"slice": 1, "criterion": "HandoffRecord type; 3 tools registered (44 total); currentOwnerId exposed on proxy + types", "status": "pass", "evidence": "smoke-test.mjs: 'tools/list returns 44 tools — got 44'"},
+    {"slice": 1, "criterion": "handoff_create defaults shared; private+to_member≠self rejected with clear error", "status": "pass", "evidence": "tests/handoff-tools.test.ts (13 tests) + team-e2e.mjs 'private handoff to another member is rejected' / 'private self-handoff allowed'"},
+    {"slice": 1, "criterion": "handoff_update stamps accepted_at/completed_at; handoff_list filters to_member/status/task_id, 'me' resolution", "status": "pass", "evidence": "team-e2e.mjs 'bob accepts: accepted_at stamped', 'bob completes: completed_at stamped', 'bob sees the open handoff via to_member me'"},
+    {"slice": 1, "criterion": "Unit tests green; team-e2e.mjs extended (count 44 + handoff lifecycle + privacy) and green", "status": "pass", "evidence": "vitest 99/99; team-e2e.mjs 37/37 (was 36+1 fail before markdown.ts objects-in-list serializer fix)"},
+    {"slice": 2, "criterion": "012 applied to live e2e project, idempotent (applied twice)", "status": "pass", "evidence": "psql run 1: CREATE TABLE...GRANT clean; run 2: all IF NOT EXISTS skips, DROP/CREATE POLICY + GRANT re-applied clean"},
+    {"slice": 2, "criterion": "supabase e2e green with 44 tools; mvp-test-plan count NOT changed", "status": "pass", "evidence": "team-e2e-supabase.mjs 22/22 live (project levqrbrwslnkeuxljkhz); mvp-test-plan.mjs:97 still asserts 41 (pins published 0.8.0)"},
+    {"slice": 2, "criterion": "hardened e2e: bob JWT reads alice shared handoff, 0 rows for alice private handoff via raw PostgREST", "status": "pass", "evidence": "team-e2e-supabase-hardened.mjs 15/15 live — 'bob direct REST sees ZERO alice private handoffs (RLS fails closed)', 'bob direct REST CAN read shared handoffs'"},
+    {"slice": 3, "criterion": "TEAM-SETUP.md handoff workflow section; README tool table/counts; package.json description 41→44", "status": "pass", "evidence": "docs/TEAM-SETUP.md 'Handoff packets (passing work between members)' section; README.md Tools (44) + Handoffs row; package.json description updated; scripts/smoke-test.mjs EXPECTED_TOOL_COUNT=44"},
+    {"slice": 3, "criterion": "dist/ rebuilt (scratch dir → rsync), verify-dist PASS, typecheck clean", "status": "pass", "evidence": "verify-dist: PASS fatal=0 missing=0 classA=0 allowB=0 mapWarn=122; tsc --noEmit clean"}
+  ],
+  "regressions_checked": [
+    {"area": "markdown adapter scalar lists", "evidence": "tests/markdown-roundtrip.test.ts 'still roundtrips plain scalar lists (no regression)' green"},
+    {"area": "existing 36 team-e2e checks", "evidence": "all pass alongside new [9] section (37/37)"},
+    {"area": "existing 18 supabase e2e checks", "evidence": "all pass alongside new [8] section (22/22)"},
+    {"area": "existing 10 hardened checks", "evidence": "all pass alongside new [4] section (15/15)"},
+    {"area": "setup-status/setup-migrate sync (2026-05-11 RC incident)", "evidence": "handoffs added to BOTH EXPECTED_COLLECTIONS and COLLECTION_SCHEMAS in same change"}
+  ]
+}

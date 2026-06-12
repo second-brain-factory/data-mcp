@@ -182,7 +182,7 @@ frontmatter intact, `owner_id` present, content readable.
 
 Expect Claude to set the delete confirmation itself.
 
-> **`_archive/` warning:** `knowledge_delete` is a soft delete — records
+> **`_archive/` warning:** `record_delete` (collection: knowledge) is a soft delete — records
 > (including private ones) are *moved* to `_archive/` inside the memory
 > root, not destroyed. Since 0.7.4, `setup_migrate` writes a `.gitignore`
 > covering `_archive/`, so the push in this step must NOT commit archived

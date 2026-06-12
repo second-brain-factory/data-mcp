@@ -124,7 +124,7 @@ try {
   const sv = alice.getServerVersion();
   check(`server version matches package.json (${PKG_VERSION})`, sv?.version === PKG_VERSION, `got ${sv?.version}`);
   const tools = (await alice.listTools()).tools;
-  check('44 tools registered', tools.length === 44, `got ${tools.length}`);
+  check('21 tools registered', tools.length === 21, `got ${tools.length}`);
   const learnTool = tools.find((t) => t.name === 'knowledge_learn');
   check('knowledge_learn exposes owner_scope param', JSON.stringify(learnTool?.inputSchema ?? {}).includes('owner_scope'));
 
@@ -167,16 +167,16 @@ try {
 
   // --- 5. Shared task handoff ---
   console.log('\n[5] Shared task handoff (alice creates, bob completes)');
-  const task = await call(alice, 'task_create', {
-    title: `E2E ${RUN_ID}: bob please review the pilot deck`, owner_scope: 'shared', priority: 'high',
+  const task = await call(alice, 'record_create', {
+    collection: 'tasks', data: { title: `E2E ${RUN_ID}: bob please review the pilot deck`, priority: 'high' }, owner_scope: 'shared',
   });
   const taskId = task.task?.id ?? task.item?.id ?? task.id;
   check('alice creates shared task', Boolean(taskId), JSON.stringify(task).slice(0, 300));
 
   if (taskId) {
-    const bobTasks = await call(bob, 'task_list', {});
+    const bobTasks = await call(bob, 'record_query', { collection: 'tasks' });
     check('bob sees shared task in his list', JSON.stringify(bobTasks).includes(`E2E ${RUN_ID}`), JSON.stringify(bobTasks).slice(0, 300));
-    const done = await call(bob, 'task_update', { id: taskId, status: 'done' });
+    const done = await call(bob, 'record_update', { collection: 'tasks', id: taskId, data: { status: 'done' } });
     const doneStr = JSON.stringify(done);
     check('bob completes alice\'s shared task', !doneStr.toLowerCase().includes('error') && !doneStr.includes('NOT_FOUND'), doneStr.slice(0, 300));
   }
@@ -185,7 +185,7 @@ try {
   console.log('\n[6] Cross-owner write protection');
   const privId = alicePrivate.item?.id;
   if (privId) {
-    const bobUpdate = await call(bob, 'knowledge_update', { id: privId, content: 'bob tampering' })
+    const bobUpdate = await call(bob, 'record_update', { collection: 'knowledge', id: privId, data: { content: 'bob tampering' } })
       .catch((e) => ({ _err: String(e) }));
     const updStr = JSON.stringify(bobUpdate);
     check('bob blocked from updating alice private record', updStr.includes('NOT_FOUND') || updStr.includes('not found') || updStr.includes('_err') || updStr.includes('error'), updStr.slice(0, 300));

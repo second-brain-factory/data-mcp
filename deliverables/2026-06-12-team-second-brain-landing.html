@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Second Brain — One memory for your whole team's AI</title>
+<meta name="description" content="Plug every member's AI assistant into one shared brain. Knowledge captured once is available to everyone — while each member keeps a private corner. Database-enforced privacy in hardened mode.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff;
+  --fg: #000000;
+  --muted: #f5f5f5;
+  --muted-fg: #595959;
+  --border: 4px solid #000;
+  --border-thin: 2px solid #000;
+}
+* { border-radius: 0 !important; box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', -apple-system, system-ui, sans-serif;
+  background: var(--bg); color: var(--fg); line-height: 1.6;
+}
+code, .mono, .badge { font-family: 'Space Mono', 'SF Mono', Monaco, monospace; }
+a { color: inherit; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.badge {
+  display: inline-block; padding: 4px 10px; border: var(--border-thin);
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; background: var(--bg); font-weight: 700;
+}
+.badge-inv { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.section { padding: 72px 24px; max-width: 1100px; margin: 0 auto; }
+.kicker { font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 16px; }
+
+/* HERO */
+.hero { background: var(--fg); color: var(--bg); padding: 96px 24px 80px; }
+.hero-inner { max-width: 1100px; margin: 0 auto; }
+.hero h1 { font-size: clamp(2.6rem, 6.5vw, 5.2rem); font-weight: 800; letter-spacing: -0.03em; line-height: 0.95; margin: 20px 0 28px; }
+.hero p.sub { font-size: clamp(1.1rem, 2vw, 1.4rem); max-width: 660px; color: #d4d4d4; margin-bottom: 40px; }
+.hero .kicker { color: #999; }
+.install {
+  display: inline-block; background: var(--bg); color: var(--fg);
+  font-family: 'Space Mono', monospace; font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+  padding: 16px 24px; border: 4px solid var(--bg); font-weight: 700;
+}
+.hero-links { margin-top: 24px; font-family: 'Space Mono', monospace; font-size: 13px; }
+.hero-links a { color: var(--bg); margin-right: 24px; }
+
+/* BIG NUMBERS */
+.numbers { display: grid; grid-template-columns: repeat(4, 1fr); border: var(--border); }
+.num-card { padding: 32px 24px; border-right: var(--border-thin); }
+.num-card:last-child { border-right: none; }
+.hero-number { font-size: clamp(2.2rem, 4.5vw, 3.6rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.metric-label { font-family: 'Space Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-fg); margin-top: 8px; }
+
+h2 { font-size: clamp(1.75rem, 3.5vw, 2.8rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; }
+.lede { font-size: 1.15rem; max-width: 680px; color: #1a1a1a; margin-bottom: 40px; }
+
+/* PROBLEM CARDS */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: var(--border); }
+.step { padding: 32px; border-right: var(--border-thin); background: var(--bg); }
+.step:last-child { border-right: none; }
+.step-num { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+.step h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+.step p { font-size: 0.95rem; color: #333; }
+.step code { background: var(--muted); padding: 1px 6px; font-size: 0.85em; }
+
+/* USE CASE CARDS */
+.tools-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.tool-card { border: var(--border-thin); padding: 24px; }
+.tool-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 6px; }
+.tool-card .count { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.1em; }
+.tool-card p { font-size: 0.9rem; color: #333; margin-top: 8px; }
+.tool-card code { font-size: 0.78em; background: var(--muted); padding: 1px 5px; }
+
+/* TABLE */
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 2px solid var(--fg); padding: 12px 16px; text-align: left; font-size: 0.95rem; vertical-align: top; }
+th { background: var(--fg); color: var(--bg); text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; font-family: 'Space Mono', monospace; }
+td strong { font-weight: 700; }
+
+/* DARK SECTION */
+.dark { background: var(--fg); color: var(--bg); }
+.dark .kicker { color: #999; }
+.dark .lede { color: #d4d4d4; }
+.dark h2 { color: var(--bg); }
+.scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 32px; }
+.scope-card { border: 2px solid var(--bg); padding: 28px; }
+.scope-card h3 { font-size: 1.3rem; font-weight: 800; margin-bottom: 10px; }
+.scope-card p { font-size: 0.95rem; color: #d4d4d4; }
+.scope-card .badge { border-color: var(--bg); color: var(--bg); background: transparent; }
+
+/* DIAGRAM */
+.diagram { border: var(--border); padding: 24px; margin-top: 40px; background: var(--bg); }
+.diagram svg { width: 100%; height: auto; display: block; }
+
+/* CALLOUT */
+.callout { border: var(--border); padding: 32px; background: var(--muted); margin-top: 32px; }
+.callout h3 { font-size: 1.25rem; font-weight: 800; margin-bottom: 10px; }
+.callout p { font-size: 0.98rem; }
+.callout code { background: var(--bg); border: 1px solid #ccc; padding: 1px 6px; font-size: 0.85em; }
+
+/* CONVERSATION */
+.convo { border: var(--border); margin-top: 32px; }
+.convo-row { display: grid; grid-template-columns: 150px 1fr; border-bottom: var(--border-thin); }
+.convo-row:last-child { border-bottom: none; }
+.convo-who { padding: 16px; font-family: 'Space Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; border-right: var(--border-thin); background: var(--muted); }
+.convo-msg { padding: 16px 20px; font-size: 0.95rem; }
+.convo-msg code { background: var(--muted); padding: 1px 5px; font-size: 0.85em; }
+
+/* FOOTER */
+footer { border-top: var(--border); padding: 48px 24px; }
+.footer-inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; font-family: 'Space Mono', monospace; font-size: 13px; }
+
+@media (max-width: 768px) {
+  .numbers, .steps, .tools-grid, .scope-grid { grid-template-columns: 1fr; }
+  .num-card, .step { border-right: none; border-bottom: var(--border-thin); }
+  .num-card:last-child, .step:last-child { border-bottom: none; }
+  .convo-row { grid-template-columns: 1fr; }
+  .convo-who { border-right: none; border-bottom: 1px solid #ccc; }
+  .section { padding: 48px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-inner">
+    <div class="kicker">Team Second Brain · powered by @iwo-szapar/data-mcp v0.8.0</div>
+    <h1>Your team's AI assistants<br>share one brain.</h1>
+    <p class="sub">What Alice's assistant learns today, Bob's assistant knows tomorrow. Decisions, contacts, research, and handed-off tasks live in one shared memory — while every member keeps a private corner teammates can't see.</p>
+    <div class="install">npx -y @iwo-szapar/data-mcp@0.8.0</div>
+    <div class="hero-links">
+      <a href="https://github.com/second-brain-factory/data-mcp/blob/main/docs/TEAM-SETUP.md">Team Setup Runbook</a>
+      <a href="https://github.com/second-brain-factory/data-mcp">GitHub</a>
+      <a href="https://www.npmjs.com/package/@iwo-szapar/data-mcp">npm</a>
+    </div>
+  </div>
+</header>
+
+<!-- BIG NUMBERS -->
+<section class="section" style="padding-bottom: 24px;">
+  <div class="numbers">
+    <div class="num-card">
+      <div class="hero-number">1</div>
+      <div class="metric-label">Shared brain per team</div>
+    </div>
+    <div class="num-card">
+      <div class="hero-number">2</div>
+      <div class="metric-label">Scopes — private &amp; shared</div>
+    </div>
+    <div class="num-card">
+      <div class="hero-number">~15<span style="font-size:0.5em;">min</span></div>
+      <div class="metric-label">Setup for a team of 3</div>
+    </div>
+    <div class="num-card">
+      <div class="hero-number">0</div>
+      <div class="metric-label">Private rows leaked — DB-enforced in hardened mode</div>
+    </div>
+  </div>
+</section>
+
+<!-- THE PROBLEM -->
+<section class="section">
+  <div class="kicker">The problem</div>
+  <h2>Every teammate's AI starts from zero</h2>
+  <p class="lede">Your team already works with AI assistants. But each one has amnesia — and none of them know what the others were told.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3>Knowledge dies in chat windows</h3>
+      <p>The reasoning behind last month's pricing decision lives in someone's closed Claude session. Gone.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3>Everyone re-explains everything</h3>
+      <p>Each member re-teaches their assistant the same client context, the same constraints, the same "we already tried that."</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3>Handoffs lose context</h3>
+      <p>Alice's research never reaches Bob's assistant. Tasks get passed in Slack and dropped on the floor.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" style="padding-top: 0;">
+  <div class="kicker">How it works</div>
+  <h2>A shared filing cabinet, two kinds of drawers</h2>
+  <p class="lede">Every member runs the same MCP server pointed at one shared backend. One env var says who you are. The rest is just conversation.</p>
+
+  <div class="convo">
+    <div class="convo-row">
+      <div class="convo-who">Alice</div>
+      <div class="convo-msg">"Remember as shared: we chose Stripe over Paddle because of Connect payouts."</div>
+    </div>
+    <div class="convo-row">
+      <div class="convo-who">Alice's assistant</div>
+      <div class="convo-msg">Stored in the team scope. Every member's assistant can now recall it.</div>
+    </div>
+    <div class="convo-row">
+      <div class="convo-who">Bob · next week</div>
+      <div class="convo-msg">"Why did we go with Stripe again?"</div>
+    </div>
+    <div class="convo-row">
+      <div class="convo-who">Bob's assistant</div>
+      <div class="convo-msg">Recalls Alice's decision, with the date and the reasoning. No re-explaining, no Slack archaeology.</div>
+    </div>
+    <div class="convo-row">
+      <div class="convo-who">Bob</div>
+      <div class="convo-msg">"Note privately: my negotiation floor for the pilot is 4k."</div>
+    </div>
+    <div class="convo-row">
+      <div class="convo-who">Carol's assistant</div>
+      <div class="convo-msg">Asked about Bob's floor → <code>RECORD_NOT_FOUND</code>. Private records don't even leak their existence.</div>
+    </div>
+  </div>
+
+  <div style="margin-top: 56px;"></div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3>One member creates the backend</h3>
+      <p>A free Supabase project (recommended) or a shared git repo of markdown files. Paste-ready SQL from <code>setup_bootstrap</code>.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3>Each member sets their ID</h3>
+      <p>Same config for everyone, except one line: <code>MEMORYOS_OWNER_ID</code>. That's who you are — it stamps your writes and scopes your reads.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3>Memory compounds</h3>
+      <p>Writes default to private; say "shared" to publish to the team. Reads return your private records plus everything shared.</p>
+    </div>
+  </div>
+</section>
+
+<!-- USE CASES -->
+<section class="section" style="padding-top: 0;">
+  <div class="kicker">Built for</div>
+  <h2>Teams that run on context</h2>
+  <div class="tools-grid">
+    <div class="tool-card">
+      <h3>Agencies &amp; consultancies</h3>
+      <div class="count">client knowledge</div>
+      <p>Any member's assistant can answer "what did we agree with client Y?" — decisions, contacts, and history in one place.</p>
+    </div>
+    <div class="tool-card">
+      <h3>Founding teams</h3>
+      <div class="count">decision log</div>
+      <p>The reasoning behind every choice survives beyond chat history. New context compounds instead of evaporating.</p>
+    </div>
+    <div class="tool-card">
+      <h3>Task handoffs</h3>
+      <div class="count">shared tasks</div>
+      <p>Alice creates a shared task; it shows up in Bob's list; he marks it done; Alice sees it. Across assistants, automatically.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TEAM ARCHITECTURE (DARK) -->
+<section class="dark">
+  <div class="section">
+    <div class="kicker">Private means private</div>
+    <h2>Scoping that doesn't leak</h2>
+    <p class="lede">Reading, updating, or deleting another member's private record returns "not found" — existence is never revealed. Unshared means invisible.</p>
+
+    <div class="scope-grid">
+      <div class="scope-card">
+        <span class="badge">Private — default</span>
+        <h3>Your drawer</h3>
+        <p>Everything you save is yours unless you say otherwise. Salary notes, negotiation floors, half-formed ideas — teammates' assistants can't stumble into them.</p>
+      </div>
+      <div class="scope-card">
+        <span class="badge">Shared</span>
+        <h3>The team drawer</h3>
+        <p>Decisions, research, contacts, tasks. Saved once by anyone, available to every member's assistant instantly.</p>
+      </div>
+    </div>
+
+    <div class="diagram" style="background: #000; border-color: #fff;">
+      <svg viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" font-family="Space Mono, monospace">
+        <g>
+          <rect x="20" y="30" width="180" height="64" fill="none" stroke="#fff" stroke-width="3"/>
+          <text x="110" y="58" fill="#fff" font-size="14" text-anchor="middle" font-weight="bold">ALICE</text>
+          <text x="110" y="78" fill="#999" font-size="11" text-anchor="middle">Claude + data-mcp</text>
+
+          <rect x="20" y="118" width="180" height="64" fill="none" stroke="#fff" stroke-width="3"/>
+          <text x="110" y="146" fill="#fff" font-size="14" text-anchor="middle" font-weight="bold">BOB</text>
+          <text x="110" y="166" fill="#999" font-size="11" text-anchor="middle">Claude + data-mcp</text>
+
+          <rect x="20" y="206" width="180" height="64" fill="none" stroke="#fff" stroke-width="3"/>
+          <text x="110" y="234" fill="#fff" font-size="14" text-anchor="middle" font-weight="bold">CAROL</text>
+          <text x="110" y="254" fill="#999" font-size="11" text-anchor="middle">Claude + data-mcp</text>
+        </g>
+        <g stroke="#fff" stroke-width="2">
+          <line x1="200" y1="62" x2="330" y2="130"/>
+          <line x1="200" y1="150" x2="330" y2="150"/>
+          <line x1="200" y1="238" x2="330" y2="170"/>
+        </g>
+        <rect x="335" y="60" width="250" height="180" fill="none" stroke="#fff" stroke-width="4"/>
+        <text x="460" y="95" fill="#fff" font-size="14" text-anchor="middle" font-weight="bold">ONE SHARED BRAIN</text>
+        <text x="460" y="115" fill="#999" font-size="11" text-anchor="middle">Supabase / markdown repo</text>
+        <rect x="360" y="135" width="200" height="36" fill="#fff"/>
+        <text x="460" y="158" fill="#000" font-size="12" text-anchor="middle" font-weight="bold">shared: team scope</text>
+        <rect x="360" y="183" width="200" height="36" fill="none" stroke="#666" stroke-width="2" stroke-dasharray="6 4"/>
+        <text x="460" y="206" fill="#999" font-size="12" text-anchor="middle">private: per member</text>
+        <g stroke="#fff" stroke-width="2">
+          <line x1="585" y1="150" x2="700" y2="150"/>
+        </g>
+        <rect x="705" y="105" width="175" height="90" fill="none" stroke="#fff" stroke-width="3"/>
+        <text x="792" y="135" fill="#fff" font-size="13" text-anchor="middle" font-weight="bold">ENFORCED BY</text>
+        <text x="792" y="157" fill="#999" font-size="11" text-anchor="middle">owner scoping (MCP)</text>
+        <text x="792" y="177" fill="#999" font-size="11" text-anchor="middle">+ RLS (hardened)</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- HARDENED MODE -->
+<section class="section">
+  <div class="kicker">New in 0.8.0</div>
+  <h2>Hardened mode: privacy the database enforces</h2>
+  <p class="lede">Most team tools enforce privacy in the app layer and hope nobody looks underneath. Hardened mode closes that hole.</p>
+
+  <div class="callout">
+    <span class="badge badge-inv">Per-member JWTs + Row Level Security</span>
+    <h3 style="margin-top: 14px;">Even a teammate who bypasses the assistant and queries the database directly gets zero of your private rows.</h3>
+    <p style="margin-top: 10px;">Each member gets their own access token instead of a shared master key. Postgres Row Level Security checks the token's identity on every query — the database itself fails closed. Opt-in, fully backward-compatible, and verified by a live test suite that includes direct-to-database bypass probes.</p>
+    <p style="margin-top: 14px;"><code>SB_SUPABASE_ANON_KEY</code> + <code>SB_SUPABASE_MEMBER_JWT</code> — that's the whole config change.</p>
+  </div>
+</section>
+
+<!-- CHOOSE YOUR BACKEND -->
+<section class="section" style="padding-top: 0;">
+  <div class="kicker">Choose your backend</div>
+  <h2>How private should private be?</h2>
+  <p class="lede">Both backends enforce the same scoping rules. What differs is where the data physically lives — and that decides how much "private" actually protects.</p>
+  <table>
+    <thead>
+      <tr><th></th><th>Supabase — recommended</th><th>Markdown — lightweight</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Private records live</strong></td>
+        <td>In the cloud — never on teammates' disks</td>
+        <td>As cleartext files in every member's clone</td>
+      </tr>
+      <tr>
+        <td><strong>Hidden from teammates' assistants</strong></td>
+        <td><strong>Yes, by default</strong></td>
+        <td>No — their assistant can read your files</td>
+      </tr>
+      <tr>
+        <td><strong>Deliberate bypass</strong></td>
+        <td>Closed in <strong>hardened mode</strong> (DB fails closed)</td>
+        <td>Possible — just open the file</td>
+      </tr>
+      <tr>
+        <td><strong>Infrastructure</strong></td>
+        <td>One free Supabase project</td>
+        <td>None — a git repo</td>
+      </tr>
+      <tr>
+        <td><strong>Sync</strong></td>
+        <td>Live, concurrent</td>
+        <td>git pull / push ritual</td>
+      </tr>
+      <tr>
+        <td><strong>Best for</strong></td>
+        <td>Teams with privacy expectations between members</td>
+        <td>Solo multi-machine; teams treating all memory as shared</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- HONESTY -->
+<section class="section" style="padding-top: 0;">
+  <div class="kicker">No fine print</div>
+  <h2>We document the limits</h2>
+  <p class="lede">The runbook tells you exactly what "private" means on each backend — including what it doesn't protect against. The contract is enforced by 80+ automated checks, including live tests that try to break the isolation.</p>
+  <div class="tools-grid">
+    <div class="tool-card">
+      <h3>Tested team contract</h3>
+      <p>Private isolation, shared visibility, task handoffs, no-existence-leak, direct-database bypass probes — all automated, all in the open-source repo, all runnable by you.</p>
+    </div>
+    <div class="tool-card">
+      <h3>Your data, your storage</h3>
+      <p>The brain lives in a Supabase project you own or a git repo you control. Leave any time; take everything. No vendor database in the middle.</p>
+    </div>
+    <div class="tool-card">
+      <h3>Honest security model</h3>
+      <p>Trust-based by default, database-enforced when hardened. The docs say which is which — and what to keep out of a team brain entirely.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA (DARK) -->
+<section class="dark">
+  <div class="section" style="text-align: center; padding: 88px 24px;">
+    <h2 style="font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -0.03em;">Teach it once.<br>The whole team knows.</h2>
+    <p class="lede" style="margin: 20px auto 36px; max-width: 540px;">Team of 3, set up in about 15 minutes. One config block per member.</p>
+    <div class="install">npx -y @iwo-szapar/data-mcp@0.8.0</div>
+    <div class="hero-links" style="margin-top: 28px;">
+      <a href="https://github.com/second-brain-factory/data-mcp/blob/main/docs/TEAM-SETUP.md" style="color:#fff;">Read the Team Setup Runbook →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div>Team Second Brain · @iwo-szapar/data-mcp v0.8.0 · MIT</div>
+    <div>Built by <a href="https://second-brain-factory.com">Second Brain Factory</a></div>
+  </div>
+</footer>
+
+</body>
+</html>
