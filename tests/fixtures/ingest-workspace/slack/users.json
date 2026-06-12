@@ -1,0 +1,27 @@
+[
+  {
+    "id": "U01AAA111",
+    "name": "ana",
+    "profile": {
+      "real_name": "Ana Kowalska",
+      "display_name": "ana"
+    }
+  },
+  {
+    "id": "U02BBB222",
+    "name": "marco",
+    "profile": {
+      "real_name": "Marco Rossi",
+      "display_name": ""
+    }
+  },
+  {
+    "id": "U03CCC333",
+    "name": "bot-deploy",
+    "is_bot": true,
+    "profile": {
+      "real_name": "Deploy Bot",
+      "display_name": "deploybot"
+    }
+  }
+]

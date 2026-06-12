@@ -1,0 +1,18 @@
+{
+  "color": "DEFAULT",
+  "isTrashed": false,
+  "isPinned": true,
+  "isArchived": false,
+  "textContent": "Olive oil from the co-op in Puglia: order 5L cans in November, they sell out by January.",
+  "title": "Olive oil supplier",
+  "userEditedTimestampUsec": 1718180400000000,
+  "createdTimestampUsec": 1718094000000000,
+  "labels": [
+    {
+      "name": "food"
+    },
+    {
+      "name": "suppliers"
+    }
+  ]
+}

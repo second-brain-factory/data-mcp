@@ -1,0 +1,28 @@
+{
+  "color": "DEFAULT",
+  "isTrashed": false,
+  "isPinned": false,
+  "isArchived": false,
+  "title": "Weekend market list",
+  "userEditedTimestampUsec": 1718266800000000,
+  "createdTimestampUsec": 1718266800000000,
+  "listContent": [
+    {
+      "text": "Burrata",
+      "isChecked": true
+    },
+    {
+      "text": "San Marzano tomatoes",
+      "isChecked": false
+    },
+    {
+      "text": "Basil plant",
+      "isChecked": false
+    }
+  ],
+  "labels": [
+    {
+      "name": "shopping"
+    }
+  ]
+}

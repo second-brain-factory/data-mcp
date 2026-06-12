@@ -10,6 +10,14 @@ export interface IngestContext {
     filePath: string;
     /** Basename without extension — default title stem */
     baseName: string;
+    /** Ingest-root-relative path with '/' separators (issue #19; set by runner) */
+    relPath?: string;
+    /** Export context from the runner's directory pre-pass (issue #19) */
+    export?: {
+        kind: 'slack' | 'notion';
+        /** Slack user ID -> display name */
+        users?: Map<string, string>;
+    };
 }
 
 export interface IngestItem {

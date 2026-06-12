@@ -10,14 +10,21 @@
  */
 import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, resolve, sep, basename, extname } from 'node:path';
-import { detectFormat, detectConvertedFormat, refineJsonFormat, looksBinary, stripBom } from './detect.js';
+import { join, resolve, sep, basename, extname, relative } from 'node:path';
+import { detectFormat, detectConvertedFormat, refineJsonFormat, refinePathFormat, looksBinary, stripBom } from './detect.js';
+import { detectExportKind, buildSlackUserMap, SLACK_METADATA_FILES, SLACK_DAY_FILE } from './export-context.js';
 import { PARSER_REGISTRY } from './registry.js';
 import { parseOffice } from './parsers/office.js';
 import { createConverter, sanitizeConverted, INSTALL_HINT } from './convert.js';
 import { generateSummary } from '../tools/shared.js';
 export const MAX_FILES = 200;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
+/**
+ * Recognized workspace exports (issue #19) routinely exceed 200 files
+ * (Notion trees, Slack day files), so the cap rises inside a detected
+ * export context. Plain directories keep MAX_FILES.
+ */
+export const EXPORT_MAX_FILES = 2000;
 /**
  * Chat exports (issue #18): a heavy user's conversations.json easily
  * exceeds 10MB, so files with that exact name get a dedicated cap.
@@ -33,8 +40,8 @@ function isInside(child, parent) {
     const p = resolve(parent);
     return c === p || c.startsWith(p + sep);
 }
-/** Recursively collect candidate files. Returns [files, capped]. */
-async function walk(root) {
+/** Recursively collect candidate files up to maxFiles. Returns [files, capped]. */
+async function walk(root, maxFiles) {
     const stat = await fs.stat(root);
     if (stat.isFile())
         return { files: [root], capped: false };
@@ -62,7 +69,7 @@ async function walk(root) {
             }
             if (!entry.isFile())
                 continue;
-            if (files.length >= MAX_FILES) {
+            if (files.length >= maxFiles) {
                 capped = true;
                 return { files, capped };
             }
@@ -158,8 +165,9 @@ async function processConvertedFile(adapter, filePath, format, opts, seenTitles,
     report.status = outcome.created > 0 ? (opts.dryRun ? 'dry_run' : 'created') : 'skipped_duplicate';
     return report;
 }
-async function processFile(adapter, filePath, opts, seenTitles, converter) {
+async function processFile(adapter, filePath, root, exportCtx, opts, seenTitles, converter) {
     const report = { path: filePath, format: null, status: 'error', records: 0, duplicates: 0 };
+    const relPath = relative(root, filePath).split(sep).join('/');
     try {
         const stat = await fs.stat(filePath);
         const sizeCap = basename(filePath) === 'conversations.json' ? CHAT_EXPORT_MAX_BYTES : MAX_FILE_BYTES;
@@ -177,6 +185,27 @@ async function processFile(adapter, filePath, opts, seenTitles, converter) {
             report.status = 'skipped_unsupported';
             return report;
         }
+        // Slack export context (issue #19): root metadata files are workspace
+        // structure, not knowledge; day files route to the slack parser. Both
+        // ONLY inside a detected slack export — a random date-named JSON in a
+        // plain directory keeps the generic path.
+        const inSlackExport = exportCtx?.kind === 'slack';
+        if (inSlackExport && SLACK_METADATA_FILES.has(relPath)) {
+            report.status = 'skipped_unsupported';
+            report.error = 'slack export metadata';
+            return report;
+        }
+        // Notion path refinement (issue #19): `<name> <32-hex>.(md|csv)` —
+        // pattern, not directory context, so single files refine too. The
+        // `_all.csv` duplicate Notion emits next to view CSVs is skipped.
+        const pathFormat = inSlackExport && SLACK_DAY_FILE.test(relPath)
+            ? 'slack'
+            : refinePathFormat(basename(filePath));
+        if (pathFormat === 'notion-db-all') {
+            report.status = 'skipped_duplicate';
+            report.format = 'notion-db';
+            return report;
+        }
         const buffer = await fs.readFile(filePath);
         if (looksBinary(buffer.subarray(0, 8192))) {
             report.status = 'skipped_unsupported';
@@ -189,12 +218,17 @@ async function processFile(adapter, filePath, opts, seenTitles, converter) {
             report.status = 'skipped_empty';
             return report;
         }
-        // Chat-export refinement (issue #18): both ChatGPT and Claude ship a
-        // conversations.json — shape, not extension, picks the parser.
-        const effectiveFormat = format === 'json' ? refineJsonFormat(content) : format;
+        // Chat-export/Keep refinement (issues #18/#19): shape, not
+        // extension, picks the parser for .json files.
+        const effectiveFormat = pathFormat ?? (format === 'json' ? refineJsonFormat(content) : format);
         report.format = effectiveFormat;
         const parser = PARSER_REGISTRY[effectiveFormat];
-        const ctx = { filePath, baseName: basename(filePath, extname(filePath)) };
+        const ctx = {
+            filePath,
+            baseName: basename(filePath, extname(filePath)),
+            relPath,
+            ...(exportCtx ? { export: exportCtx } : {}),
+        };
         const items = parser(content, ctx);
         if (items.length === 0) {
             report.status = 'skipped_empty';
@@ -228,12 +262,36 @@ export async function runIngest(adapter, opts) {
     }
     // Existence check up front so the tool can return a clean error
     await fs.stat(target);
-    const { files, capped } = await walk(target);
+    // Export-context pre-pass (issue #19): walk with the default cap first;
+    // when the listing reveals a recognized export, re-walk with the raised
+    // cap. Plain directories provably keep today's behavior.
+    let { files, capped } = await walk(target, MAX_FILES);
+    const toRel = (f) => relative(target, f).split(sep).join('/');
+    let exportKind = detectExportKind(files.map(toRel));
+    if (exportKind && capped) {
+        ({ files, capped } = await walk(target, EXPORT_MAX_FILES));
+        exportKind = detectExportKind(files.map(toRel));
+    }
+    let exportCtx = null;
+    if (exportKind === 'slack') {
+        // Load the user map once (the ONLY context I/O — parsers stay pure).
+        let users = new Map();
+        try {
+            users = buildSlackUserMap(JSON.parse(stripBom(await fs.readFile(join(target, 'users.json'), 'utf8'))));
+        }
+        catch {
+            // malformed users.json: degrade to raw IDs, never abort
+        }
+        exportCtx = { kind: 'slack', users };
+    }
+    else if (exportKind === 'notion') {
+        exportCtx = { kind: 'notion' };
+    }
     const converter = opts.converter ?? createConverter();
     const seenTitles = new Set();
     const reports = [];
     for (const file of files) {
-        reports.push(await processFile(adapter, file, opts, seenTitles, converter));
+        reports.push(await processFile(adapter, file, target, exportCtx, opts, seenTitles, converter));
     }
     const count = (statuses) => reports.filter((r) => statuses.includes(r.status)).length;
     return {

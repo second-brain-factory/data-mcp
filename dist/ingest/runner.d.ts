@@ -14,6 +14,12 @@ import { type Converter } from './convert.js';
 export declare const MAX_FILES = 200;
 export declare const MAX_FILE_BYTES: number;
 /**
+ * Recognized workspace exports (issue #19) routinely exceed 200 files
+ * (Notion trees, Slack day files), so the cap rises inside a detected
+ * export context. Plain directories keep MAX_FILES.
+ */
+export declare const EXPORT_MAX_FILES = 2000;
+/**
  * Chat exports (issue #18): a heavy user's conversations.json easily
  * exceeds 10MB, so files with that exact name get a dedicated cap.
  */
