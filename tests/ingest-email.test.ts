@@ -361,3 +361,139 @@ describe('runIngest .eml directory mode (AC4, AC5, AC6)', () => {
         expect(records).toHaveLength(0);
     });
 });
+
+// ---------------------------------------------------------------------------
+// Slice 3: mbox streaming (AC1, AC2, AC4, AC5, AC7)
+// ---------------------------------------------------------------------------
+import { readMbox, unescapeFromLines } from '../src/ingest/email/mbox.js';
+
+describe('unescapeFromLines', () => {
+    it('reverses mbox From-escaping including stacked escapes', () => {
+        expect(unescapeFromLines('>From the start')).toBe('From the start');
+        expect(unescapeFromLines('>>From nested')).toBe('>From nested');
+        expect(unescapeFromLines('normal line')).toBe('normal line');
+        expect(unescapeFromLines('> quoted reply')).toBe('> quoted reply');
+    });
+});
+
+describe('readMbox streaming (AC1)', () => {
+    it('splits the fixture into 6 messages with correct headers and decodes >From escapes', async () => {
+        const { emails, messagesParsed, messageErrors } = await readMbox(join(FIXTURES, 'archive.mbox'));
+        expect(messagesParsed).toBe(6);
+        expect(messageErrors).toBe(0);
+        expect(emails[0].subject).toBe('API redesign kickoff');
+        expect(emails[0].body).toContain('From a memory standpoint'); // >From unescaped
+        expect(emails[1].inReplyTo).toBe('mbox-t1-m1@example.com');
+        // RFC 2047 in mbox (AC7)
+        expect(emails[2].from).toContain('René Dubois');
+        expect(emails[2].subject).toBe('Réunion budget 2025');
+        // QP latin1 body decoded; plain preferred over html
+        expect(emails[2].body).toContain('Budget validé: 120k');
+        expect(emails[2].body).not.toContain('HTML version');
+        // html-only fallback
+        expect(emails[3].body).toContain('HTML-ONLY-BODY');
+        // bulk flag
+        expect(emails[4].isBulk).toBe(true);
+        // base64 body
+        expect(emails[5].body).toBe('Base64 body: release 3.2 ships Tuesday.');
+    });
+});
+
+describe('runIngest mbox mode (AC1, AC2-counts, AC4, AC5)', () => {
+    it('ingests the fixture into thread records with bulk skipped and quotes trimmed', async () => {
+        const { adapter, records } = makeMemoryAdapter();
+        const summary = await runIngest(adapter, { path: join(FIXTURES, 'archive.mbox'), dryRun: false });
+
+        expect(summary.files_scanned).toBe(1);
+        expect(summary.files_errored).toBe(0);
+        // 4 threads: api-redesign(2 msgs), budget, holiday, release — bulk skipped
+        expect(summary.records_created).toBe(4);
+
+        const api = records.find((r) => r.title === 'API redesign kickoff');
+        expect(api).toBeDefined();
+        expect((api!.metadata as Record<string, unknown>).message_count).toBe(2);
+        // AC4: quoted duplicate trimmed — marker appears exactly once
+        expect(((api!.content as string).split('MBOX-TRIM-MARKER').length - 1)).toBe(1);
+        expect(api!.source).toBe('ingest:mbox');
+
+        // AC5: bulk skipped by default, reported on the file
+        expect(records.some((r) => (r.content as string).includes('MBOX-BULK-MARKER'))).toBe(false);
+        expect(summary.reports[0].error).toContain('bulk message(s) skipped');
+
+        // D1: counts reported via the summary
+        expect(summary.reports[0].records).toBe(4);
+    });
+
+    it('include_bulk ingests the spam thread too', async () => {
+        const { adapter, records } = makeMemoryAdapter();
+        await runIngest(adapter, { path: join(FIXTURES, 'archive.mbox'), dryRun: false, includeBulk: true });
+        expect(records.some((r) => (r.content as string).includes('MBOX-BULK-MARKER'))).toBe(true);
+    });
+
+    it('re-ingest is idempotent', async () => {
+        const { adapter } = makeMemoryAdapter();
+        await runIngest(adapter, { path: join(FIXTURES, 'archive.mbox'), dryRun: false });
+        const again = await runIngest(adapter, { path: join(FIXTURES, 'archive.mbox'), dryRun: false });
+        expect(again.records_created).toBe(0);
+        expect(again.records_deduplicated).toBe(4);
+    });
+
+    it('malformed messages are isolated, batch continues', async () => {
+        const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+        const { tmpdir } = await import('node:os');
+        const dir = await mkdtemp(join(tmpdir(), 'ingest-mbox-malformed-'));
+        try {
+            const mbox = [
+                'From good@x.com Mon Jun 10 09:00:00 2024',
+                'From: good@x.com', 'Subject: Valid one', 'Message-ID: <ok@x>', '',
+                'Real content survives.', '',
+                'From broken@x.com Mon Jun 10 10:00:00 2024',
+                'no colon header line at all and no blank separator',
+            ].join('\n');
+            await writeFile(join(dir, 'mixed.mbox'), mbox);
+            const { adapter, records } = makeMemoryAdapter();
+            const summary = await runIngest(adapter, { path: join(dir, 'mixed.mbox'), dryRun: false });
+            expect(summary.files_errored).toBe(0);
+            expect(records.some((r) => (r.content as string).includes('Real content survives'))).toBe(true);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
+});
+
+describe('mbox bounded memory (AC2, deviation D2)', () => {
+    it('streams a ~64MB synthetic mbox with RSS delta < 150MB', async () => {
+        const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
+        const { tmpdir } = await import('node:os');
+        const dir = await mkdtemp(join(tmpdir(), 'ingest-mbox-large-'));
+        try {
+            // ~8KB per message x ~8200 messages ≈ 64MB, distinct subjects
+            const filler = 'Lorem ipsum decision context line that pads the body out considerably. '.repeat(100);
+            const parts: string[] = [];
+            for (let i = 0; i < 8200; i++) {
+                parts.push([
+                    `From u${i}@x.com Mon Jun 10 09:00:00 2024`,
+                    `From: u${i}@x.com`, `To: t@x.com`,
+                    `Subject: Synthetic thread ${i}`,
+                    `Message-ID: <syn-${i}@x.com>`,
+                    `Date: Mon, 10 Jun 2024 09:00:00 +0000`, '',
+                    `Message ${i}: ${filler}`, '',
+                ].join('\n'));
+            }
+            const mboxPath = join(dir, 'big.mbox');
+            await writeFile(mboxPath, parts.join('\n'));
+
+            global.gc?.();
+            const before = process.memoryUsage().rss;
+            const { emails, messagesParsed } = await readMbox(mboxPath);
+            const after = process.memoryUsage().rss;
+
+            expect(messagesParsed).toBe(8200);
+            expect(emails).toHaveLength(8200);
+            const deltaMb = (after - before) / (1024 * 1024);
+            expect(deltaMb).toBeLessThan(150);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    }, 120000);
+});

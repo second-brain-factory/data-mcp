@@ -51,6 +51,7 @@ export function detectConvertedFormat(filePath: string): string | null {
  */
 const EMAIL_EXTENSION_MAP: Record<string, 'eml' | 'mbox'> = {
     '.eml': 'eml',
+    '.mbox': 'mbox',
 };
 
 /** Map a file path to an email format id, or null. */

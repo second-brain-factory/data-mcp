@@ -17,7 +17,8 @@ import type { IngestItem, IngestContext, FileReport, FileStatus, IngestSummary }
 import { detectFormat, detectConvertedFormat, detectEmailFormat, refineJsonFormat, refinePathFormat, looksBinary, stripBom } from './detect.js';
 import { detectExportKind, buildSlackUserMap, SLACK_METADATA_FILES, SLACK_DAY_FILE, type ExportContext } from './export-context.js';
 import { parseEmailMessage, type ParsedEmail } from './email/mime.js';
-import { groupEmailThreads } from './email/threads.js';
+import { groupEmailThreads, type ThreadGroupResult } from './email/threads.js';
+import { readMbox } from './email/mbox.js';
 import { PARSER_REGISTRY } from './registry.js';
 import { parseOffice } from './parsers/office.js';
 import { createConverter, sanitizeConverted, INSTALL_HINT, type Converter } from './convert.js';
@@ -38,6 +39,12 @@ export const EXPORT_MAX_FILES = 2000;
  * exceeds 10MB, so files with that exact name get a dedicated cap.
  */
 export const CHAT_EXPORT_MAX_BYTES = 200 * 1024 * 1024; // 200MB
+
+/**
+ * mbox sanity cap (issue #20). Streamed — never loaded whole — so the cap
+ * is a guard against pathological inputs, not a memory bound.
+ */
+export const MBOX_MAX_BYTES = 4 * 1024 * 1024 * 1024; // 4GB
 
 const SKIP_DIRS = new Set(['node_modules', '__pycache__', 'dist', '.git']);
 
@@ -309,26 +316,40 @@ async function processFile(
 }
 
 /**
- * Email batch (issue #20): parse each .eml with per-file error isolation,
- * thread-group across the whole batch (D3), write one record per thread,
- * and attribute every record to its thread's oldest message's file so
- * per-file reports stay meaningful. Bulk mail is skipped by default
- * (skipped_unsupported with reason) unless opts.includeBulk.
+ * Email batch (issue #20): parse .eml files (per-file error isolation) and
+ * stream .mbox files (readMbox — bounded memory), thread-group ACROSS the
+ * whole batch (D3), write one record per thread, and attribute every
+ * record to its thread's oldest message's file so per-file reports stay
+ * meaningful. Bulk mail is skipped by default (skipped_unsupported with
+ * reason) unless opts.includeBulk.
  */
 async function processEmailBatch(
     adapter: DataAdapter,
-    files: string[],
+    files: Array<{ path: string; kind: 'eml' | 'mbox' }>,
     opts: IngestOptions,
     seenTitles: Set<string>,
 ): Promise<FileReport[]> {
     const reports = new Map<string, FileReport>();
     const emails: ParsedEmail[] = [];
     const sources: string[] = []; // parallel to emails
-    for (const filePath of files) {
-        const report: FileReport = { path: filePath, format: 'eml', status: 'skipped_empty', records: 0, duplicates: 0 };
+    for (const { path: filePath, kind } of files) {
+        const report: FileReport = { path: filePath, format: kind, status: 'skipped_empty', records: 0, duplicates: 0 };
         reports.set(filePath, report);
         try {
             const stat = await fs.stat(filePath);
+            if (kind === 'mbox') {
+                if (stat.size > MBOX_MAX_BYTES) {
+                    report.status = 'skipped_too_large';
+                    continue;
+                }
+                const { emails: parsed, messageErrors } = await readMbox(filePath);
+                for (const e of parsed) {
+                    emails.push(e);
+                    sources.push(filePath);
+                }
+                if (messageErrors > 0) report.error = `${messageErrors} malformed message(s) skipped`;
+                continue;
+            }
             if (stat.size > MAX_FILE_BYTES) {
                 report.status = 'skipped_too_large';
                 continue;
@@ -347,12 +368,18 @@ async function processEmailBatch(
         }
     }
 
-    const { items, origins, bulkIndices } = groupEmailThreads(emails, { includeBulk: opts.includeBulk ?? false });
+    const { items, origins, bulkIndices }: ThreadGroupResult = groupEmailThreads(emails, { includeBulk: opts.includeBulk ?? false });
+    const bulkBySource = new Map<string, number>();
     for (const idx of bulkIndices) {
-        const report = reports.get(sources[idx])!;
-        if (report.status === 'skipped_empty') {
+        bulkBySource.set(sources[idx], (bulkBySource.get(sources[idx]) ?? 0) + 1);
+    }
+    for (const [sourcePath, n] of bulkBySource) {
+        const report = reports.get(sourcePath)!;
+        if (report.status === 'skipped_empty' && report.format === 'eml') {
             report.status = 'skipped_unsupported';
             report.error = 'bulk mail (List-Unsubscribe/Precedence) — pass include_bulk to ingest';
+        } else if (report.format === 'mbox') {
+            report.error = [report.error, `${n} bulk message(s) skipped — pass include_bulk to ingest`].filter(Boolean).join('; ');
         }
     }
 
@@ -364,8 +391,9 @@ async function processEmailBatch(
             outcome = { created: 0, duplicates: 0, changed: 0 };
             outcomes.set(sourcePath, outcome);
         }
+        const format = reports.get(sourcePath)!.format ?? 'eml';
         const hash = contentHash(items[i].content);
-        await writeItem(adapter, items[i], hash, 'eml', sourcePath, opts, seenTitles, outcome);
+        await writeItem(adapter, items[i], hash, format, sourcePath, opts, seenTitles, outcome);
     }
 
     for (const [sourcePath, outcome] of outcomes) {
@@ -386,7 +414,7 @@ async function processEmailBatch(
             report.error = 'merged into a thread record from another file';
         }
     }
-    return files.map((f) => reports.get(f)!);
+    return files.map((f) => reports.get(f.path)!);
 }
 
 /** Execute an ingest run. Per-file errors never abort the batch. */
@@ -430,13 +458,14 @@ export async function runIngest(adapter: DataAdapter, opts: IngestOptions): Prom
     const converter = opts.converter ?? createConverter();
     const seenTitles = new Set<string>();
     const reports: FileReport[] = [];
-    const emailFiles: string[] = [];
+    const emailFiles: Array<{ path: string; kind: 'eml' | 'mbox' }> = [];
     for (const file of files) {
         // Email archives (issue #20) batch across files: threads group
-        // ACROSS .eml files (approved deviation D3), so they are collected
-        // here and processed together after the per-file loop.
-        if (detectEmailFormat(file) === 'eml') {
-            emailFiles.push(file);
+        // ACROSS .eml/.mbox files (approved deviation D3), so they are
+        // collected here and processed together after the per-file loop.
+        const emailKind = detectEmailFormat(file);
+        if (emailKind) {
+            emailFiles.push({ path: file, kind: emailKind });
             continue;
         }
         reports.push(await processFile(adapter, file, target, exportCtx, opts, seenTitles, converter));
