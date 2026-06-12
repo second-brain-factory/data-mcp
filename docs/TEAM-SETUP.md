@@ -75,8 +75,10 @@ drawer plus the team drawer.
   pasting SQL, and (for hardened mode) mint and distribute one token per
   member. There is no admin UI.
 - Member tokens expire (default: one year) and must be re-minted. Revoking
-  one member means rotating the project secret, which invalidates
-  *everyone's* tokens at once — there is no per-member revocation.
+  one member is a single denylist insert
+  (`scripts/revoke-member-jwt.mjs`) — effective on their next request.
+  Rotating the project secret remains the nuclear option (kills *every*
+  member's token at once).
 - All members should pin the same package version, or different members
   can silently run different versions against the same data.
 - The markdown backend has no live sync — members must follow a git
@@ -220,9 +222,11 @@ rows plus shared rows — the database itself fails closed.
 
 **Setup (admin, once):**
 
-1. Apply `migrations/supabase/011_rls_owner_isolation.sql` (idempotent —
-   safe to re-run). It enables RLS on all owner-scoped tables with a
-   policy that matches the JWT's `owner_id`/`shared_owner_id` claims.
+1. Apply `migrations/supabase/011_rls_owner_isolation.sql` and
+   `013_token_revocation.sql` (idempotent — safe to re-run). They enable
+   RLS on all owner-scoped tables with a policy that matches the JWT's
+   `owner_id`/`shared_owner_id` claims and checks the per-member
+   revocation denylist.
 2. Get the project **JWT secret** (Dashboard → Settings → API → JWT
    Settings) and the **anon key**.
 3. Mint one JWT per member:
@@ -259,8 +263,37 @@ Rules:
   scopes by the env var, the database scopes by the claim; keep them in
   sync.
 - The admin keeps the service role key for maintenance (it bypasses RLS
-  by design). Rotate the project JWT secret to revoke all member tokens
-  at once.
+  by design).
+
+**Revoking a member (admin):**
+
+Each minted token carries a unique `jti` (token id, printed at mint time).
+To revoke one member without touching anyone else:
+
+```bash
+SB_SUPABASE_URL=<url> SB_SUPABASE_SERVICE_KEY=<service-key> \
+  node scripts/revoke-member-jwt.mjs --token <their-jwt> --reason "left team"
+# or, if you only recorded the jti at mint time:
+#   node scripts/revoke-member-jwt.mjs --jti <uuid> --owner-id alice
+# inspect / undo:
+#   node scripts/revoke-member-jwt.mjs list
+#   node scripts/revoke-member-jwt.mjs unrevoke --jti <uuid>
+```
+
+The jti lands in a `revoked_tokens` denylist (service-role only — members
+cannot read or write it, so there is no leak of who was revoked) and every
+RLS policy checks it. The revoked member's queries — including direct
+PostgREST — return zero rows and writes fail, effective on their next
+request. The database fails closed; no secret rotation, no re-mint for the
+rest of the team. Requires `013_token_revocation.sql`.
+
+Notes:
+
+- Tokens minted before v0.10.0 carry no `jti` and cannot be revoked
+  individually — re-mint them to make them revocable. Until then, rotating
+  the project JWT secret is the only way to kill a legacy token (nuclear:
+  invalidates every member's token at once).
+- Re-minting after revocation just works: the new token gets a fresh jti.
 
 Verified by `scripts/team-e2e-supabase-hardened.mjs`, which includes
 direct-PostgREST bypass probes: a member's JWT returns zero rows of

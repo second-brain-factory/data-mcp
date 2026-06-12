@@ -16,10 +16,10 @@
  * The secret can also come from SUPABASE_JWT_SECRET env (preferred — keeps
  * it out of shell history).
  */
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
 
-export function mintMemberJwt({ ownerId, sharedOwnerId, secret, expiresDays = 365, now = Date.now() }) {
+export function mintMemberJwt({ ownerId, sharedOwnerId, secret, expiresDays = 365, now = Date.now(), jti = randomUUID() }) {
   if (!ownerId) throw new Error('ownerId is required');
   if (!sharedOwnerId) throw new Error('sharedOwnerId is required');
   if (!secret) throw new Error('JWT secret is required (SUPABASE_JWT_SECRET env or --secret)');
@@ -32,6 +32,9 @@ export function mintMemberJwt({ ownerId, sharedOwnerId, secret, expiresDays = 36
     role: 'authenticated',          // PostgREST role switch — RLS applies
     owner_id: ownerId,              // matches RLS policy claim
     shared_owner_id: sharedOwnerId, // matches RLS policy claim
+    // unique token id — per-member revocation (issue #10); jti: null omits
+    // the claim (simulates pre-v0.10.0 legacy tokens in tests)
+    ...(jti != null ? { jti } : {}),
     iss: 'data-mcp-member',
     iat,
     exp: iat + Math.floor(days * 86400),
@@ -76,6 +79,7 @@ if (isMain) {
     });
     const { payload } = decodeJwt(token);
     console.error(`Minted member JWT for owner_id=${payload.owner_id} shared_owner_id=${payload.shared_owner_id} exp=${new Date(payload.exp * 1000).toISOString()}`);
+    console.error(`Token id (jti): ${payload.jti} — record this; revoke later with scripts/revoke-member-jwt.mjs`);
     console.error('Member config: SB_SUPABASE_ANON_KEY=<project anon key> SB_SUPABASE_MEMBER_JWT=<token below>');
     console.log(token); // token on stdout for piping
   } catch (err) {
