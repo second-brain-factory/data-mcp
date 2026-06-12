@@ -133,7 +133,9 @@ runs when `SB_SUPABASE_URL`/`SB_SUPABASE_KEY` are provided, skips
 otherwise): two simulated members, private isolation, shared visibility,
 shared task handoff, cross-owner write protection, `brain_stats` scoping.
 Hardened mode has its own suite, `scripts/team-e2e-supabase-hardened.mjs`,
-including direct-PostgREST bypass probes proving the database fails closed.
+including direct-PostgREST bypass probes proving the database fails closed,
+plus per-member token revocation (jti denylist — revoke one member with
+`scripts/revoke-member-jwt.mjs` without rotating the project secret).
 
 Search note: `knowledge_recall` first runs the backend's native search with
 the full query (markdown: exact-substring ranked tags > title > body;

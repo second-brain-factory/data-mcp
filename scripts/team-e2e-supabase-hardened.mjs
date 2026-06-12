@@ -22,7 +22,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mintMemberJwt } from './mint-member-jwt.mjs';
+import { mintMemberJwt, decodeJwt } from './mint-member-jwt.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(__dirname, '..', 'dist', 'index.js');
@@ -172,9 +172,63 @@ try {
   const bobInbox = await call(bob, 'handoff_list', { to_member: 'me' });
   const bobInboxStr = JSON.stringify(bobInbox);
   check('bob handoff_list "me" sees shared handoff, not alice private', bobInboxStr.includes(`Shared handoff to bob (${RUN})`) && !bobInboxStr.includes(SECRET_TEXT), bobInboxStr.slice(0, 300));
+
+  // --- 5. Per-member token revocation (issue #10, migration 013) ---
+  console.log('\n[5] Per-member token revocation (jti denylist)');
+  const { payload: bobClaims } = decodeJwt(bobJwt);
+  check('minted token carries a jti claim', typeof bobClaims.jti === 'string' && bobClaims.jti.length > 0, JSON.stringify(bobClaims));
+
+  // sanity: bob can read shared rows before revocation (proved above), now revoke him
+  const revokeRes = await restService('revoked_tokens', {
+    method: 'POST',
+    body: JSON.stringify({ jti: bobClaims.jti, owner_id: BOB, reason: `e2e ${RUN}` }),
+    headers: { Prefer: 'return=representation' },
+  });
+  check('service key inserts into denylist', revokeRes.status === 201, JSON.stringify(revokeRes).slice(0, 200));
+
+  // revoked bob: every direct query fails closed — private, shared, unscoped
+  const revokedOwn = await rest(`knowledge?owner_id=eq.${BOB}&select=id`, bobJwt);
+  check('revoked bob sees ZERO own rows', revokedOwn.status === 200 && Array.isArray(revokedOwn.body) && revokedOwn.body.length === 0, JSON.stringify(revokedOwn).slice(0, 200));
+
+  const revokedShared = await rest(`knowledge?owner_id=eq.${SHARED}&select=id`, bobJwt);
+  check('revoked bob sees ZERO shared rows', revokedShared.status === 200 && Array.isArray(revokedShared.body) && revokedShared.body.length === 0, JSON.stringify(revokedShared).slice(0, 200));
+
+  const revokedUnscoped = await rest('prospects?select=id&limit=1', bobJwt);
+  check('revoked bob sees ZERO unscoped (team-global) rows', revokedUnscoped.status === 200 && Array.isArray(revokedUnscoped.body) && revokedUnscoped.body.length === 0, JSON.stringify(revokedUnscoped).slice(0, 200));
+
+  const revokedWrite = await rest('knowledge', bobJwt, {
+    method: 'POST',
+    body: JSON.stringify({ title: 'after revoke', content: 'should fail', type: 'insight', owner_id: BOB }),
+    headers: { Prefer: 'return=representation' },
+  });
+  check('revoked bob INSERT rejected (WITH CHECK)', revokedWrite.status >= 400, JSON.stringify(revokedWrite).slice(0, 200));
+
+  // denylist must not leak to members
+  const denylistLeak = await rest('revoked_tokens?select=jti', aliceJwt);
+  check('denylist not readable by member tokens', denylistLeak.status >= 400 || (Array.isArray(denylistLeak.body) && denylistLeak.body.length === 0), JSON.stringify(denylistLeak).slice(0, 200));
+
+  // other members + service key unaffected
+  const aliceAfter = await rest(`knowledge?owner_id=eq.${SHARED}&select=id`, aliceJwt);
+  check('alice (not revoked) still reads shared rows', aliceAfter.status === 200 && aliceAfter.body.length >= 1, JSON.stringify(aliceAfter).slice(0, 200));
+
+  const svcAfter = await restService(`knowledge?owner_id=eq.${ALICE}&select=id`);
+  check('service key unaffected by revocation', svcAfter.status === 200 && svcAfter.body.length >= 1, JSON.stringify(svcAfter).slice(0, 200));
+
+  // legacy tokens (no jti) keep working
+  const legacyJwt = mintMemberJwt({ ownerId: ALICE, sharedOwnerId: SHARED, secret: SECRET, jti: null });
+  const legacyRead = await rest(`knowledge?owner_id=eq.${SHARED}&select=id`, legacyJwt);
+  check('legacy token without jti still works (backward compat)', legacyRead.status === 200 && legacyRead.body.length >= 1, JSON.stringify(legacyRead).slice(0, 200));
+
+  // unrevoke restores access (also exercises denylist DELETE path)
+  const unrevoke = await restService(`revoked_tokens?jti=eq.${bobClaims.jti}`, { method: 'DELETE' });
+  check('service key removes denylist row', unrevoke.status === 204 || unrevoke.status === 200, JSON.stringify(unrevoke).slice(0, 200));
+  const bobRestored = await rest(`knowledge?owner_id=eq.${SHARED}&select=id`, bobJwt);
+  check('un-revoked bob reads shared rows again', bobRestored.status === 200 && bobRestored.body.length >= 1, JSON.stringify(bobRestored).slice(0, 200));
 }
 finally {
   console.log('\nTeardown...');
+  // remove any denylist rows left by a mid-phase failure (idempotent)
+  await restService(`revoked_tokens?reason=eq.${encodeURIComponent(`e2e ${RUN}`)}`, { method: 'DELETE' }).catch(() => {});
   for (const table of ['knowledge', 'decisions', 'sessions', 'goals', 'tasks', 'contacts', 'knowledge_links', 'handoffs']) {
     for (const owner of [ALICE, BOB, SHARED]) {
       const res = await restService(`${table}?owner_id=eq.${owner}`, { method: 'DELETE' });

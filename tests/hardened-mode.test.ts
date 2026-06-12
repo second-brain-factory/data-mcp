@@ -1,12 +1,15 @@
 /**
- * Unit tests for hardened Supabase team mode (issue #5):
+ * Unit tests for hardened Supabase team mode (issue #5) + per-member token
+ * revocation (issue #10):
  *  - config resolution: service key vs anon+member-JWT precedence and the
  *    half-configured error
- *  - mint-member-jwt: claim contract, signature, expiry, validation
+ *  - mint-member-jwt: claim contract (incl. jti), signature, expiry, validation
+ *  - revoke-member-jwt: jti/owner extraction, legacy-token rejection
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { parseConfig } from '../src/config.js';
 import { mintMemberJwt, decodeJwt, verifyJwt } from '../scripts/mint-member-jwt.mjs';
+import { extractRevocation } from '../scripts/revoke-member-jwt.mjs';
 
 const ENV_KEYS = [
     'SB_BACKEND', 'SB_SUPABASE_URL', 'SB_SUPABASE_KEY',
@@ -83,6 +86,19 @@ describe('mint-member-jwt', () => {
         expect(payload.iss).toBe('data-mcp-member');
     });
 
+    it('mints a unique jti per token (revocation id, issue #10)', () => {
+        const a = decodeJwt(mintMemberJwt({ ownerId: 'alice', sharedOwnerId: 'team', secret: SECRET })).payload;
+        const b = decodeJwt(mintMemberJwt({ ownerId: 'alice', sharedOwnerId: 'team', secret: SECRET })).payload;
+        expect(a.jti).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+        expect(b.jti).toMatch(/^[0-9a-f]{8}-/);
+        expect(a.jti).not.toBe(b.jti);
+    });
+
+    it('explicit jti override respected (deterministic tests/e2e)', () => {
+        const token = mintMemberJwt({ ownerId: 'a', sharedOwnerId: 't', secret: SECRET, jti: 'fixed-jti' });
+        expect(decodeJwt(token).payload.jti).toBe('fixed-jti');
+    });
+
     it('signature verifies with the right secret and fails with the wrong one', () => {
         const token = mintMemberJwt({ ownerId: 'alice', sharedOwnerId: 'team', secret: SECRET });
         expect(verifyJwt(token, SECRET)).toBe(true);
@@ -111,5 +127,39 @@ describe('mint-member-jwt', () => {
         [{ ownerId: 'a', sharedOwnerId: 't', secret: 's', expiresDays: 'nope' }, /positive/],
     ])('rejects invalid input %#', (input, msg) => {
         expect(() => mintMemberJwt(input)).toThrow(msg);
+    });
+});
+
+describe('revoke-member-jwt — extractRevocation', () => {
+    const SECRET = 'test-jwt-secret-which-is-long-enough';
+
+    it('extracts jti + owner_id from a pasted token', () => {
+        const token = mintMemberJwt({ ownerId: 'alice', sharedOwnerId: 'team', secret: SECRET, jti: 'jti-123' });
+        expect(extractRevocation({ token })).toEqual({ jti: 'jti-123', owner_id: 'alice' });
+    });
+
+    it('explicit --owner-id overrides the token claim', () => {
+        const token = mintMemberJwt({ ownerId: 'alice', sharedOwnerId: 'team', secret: SECRET, jti: 'jti-123' });
+        expect(extractRevocation({ token, ownerId: 'alice-departed' }).owner_id).toBe('alice-departed');
+    });
+
+    it('rejects legacy tokens without jti with a re-mint hint', () => {
+        // simulate a pre-v0.10.0 token: same claims minus jti (jti: null omits)
+        const legacy = mintMemberJwt({ ownerId: 'alice', sharedOwnerId: 'team', secret: SECRET, jti: null });
+        const { payload } = decodeJwt(legacy);
+        expect(payload.jti).toBeUndefined();
+        expect(() => extractRevocation({ token: legacy })).toThrow(/no jti claim.*[Rr]e-mint/s);
+    });
+
+    it('accepts bare --jti without a token', () => {
+        expect(extractRevocation({ jti: 'abc' })).toEqual({ jti: 'abc', owner_id: null });
+    });
+
+    it('requires either token or jti', () => {
+        expect(() => extractRevocation({})).toThrow(/--token.*--jti/);
+    });
+
+    it('rejects garbage tokens', () => {
+        expect(() => extractRevocation({ token: 'not-a-jwt' })).toThrow(/not a decodable JWT/);
     });
 });
