@@ -5,6 +5,9 @@ Alice, Bob, and Carol) with `@iwo-szapar/data-mcp`. Covers both supported
 team backends: **Supabase** (shared Postgres project — recommended) and
 **markdown** (shared git repo — lightweight option).
 
+Naming note: `@iwo-szapar/data-mcp` is the npm package and the server-reported
+name. `second-brain-data` is the local MCP alias used in Claude configs.
+
 ## What this is (plain-language intro)
 
 A **Second Brain** is a long-term memory for your AI assistant. Normally
@@ -193,7 +196,7 @@ Shared URL + key, unique owner id — **only `MEMORYOS_OWNER_ID` differs**:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.8.0"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.15.0"],
       "env": {
         "SB_BACKEND": "supabase",
         "SB_SUPABASE_URL": "https://yourproject.supabase.co",
@@ -329,7 +332,7 @@ Claude Desktop config — **only `MEMORYOS_OWNER_ID` differs**:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.8.0"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.15.0"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/Users/alice/team-memory",
