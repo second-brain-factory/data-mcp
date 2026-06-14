@@ -41,7 +41,7 @@ Capabilities by tool prefix:
 Conventions: search with knowledge_recall before storing to avoid duplicates. In team mode, writes default to private; pass owner_scope "shared" for the team. Handoffs default to shared.`;
 export function createServer(adapter: DataAdapter): McpServer {
     const server = new McpServer({
-        name: '@second-brain/data-mcp',
+        name: '@iwo-szapar/data-mcp',
         version: PACKAGE_VERSION,
     }, {
         instructions: SERVER_INSTRUCTIONS,
