@@ -22,6 +22,20 @@ npx @iwo-szapar/data-mcp
 
 The package ships a `data-mcp` bin (stdio MCP server).
 
+## Naming Contract
+
+These names refer to the same project at different layers:
+
+| Layer | Name |
+|---|---|
+| Source repo | `second-brain-factory/data-mcp` |
+| npm package | `@iwo-szapar/data-mcp` |
+| MCP server alias in Claude configs | `second-brain-data` |
+| CLI binary | `data-mcp` |
+
+The MCP server reports itself as `@iwo-szapar/data-mcp`; `second-brain-data`
+is only the local alias you choose in `.mcp.json` / Claude Desktop config.
+
 ## Quickstart (markdown backend)
 
 The markdown backend stores every record as a YAML-frontmatter `.md` file —
@@ -34,7 +48,7 @@ Claude Code / Claude Desktop config:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.8.0"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.15.0"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/path/to/your/memory"
@@ -46,7 +60,7 @@ Claude Code / Claude Desktop config:
 
 Config rules that prevent silent version drift:
 
-- **Pin the version in `args`** (`@iwo-szapar/data-mcp@0.8.0`, not bare
+- **Pin the version in `args`** (`@iwo-szapar/data-mcp@0.15.0`, not bare
   `@iwo-szapar/data-mcp`). If the directory you launch Claude from has the
   package anywhere in its `node_modules` tree (e.g. your project depends on
   an older data-mcp), an unpinned `npx` resolves that local copy instead of

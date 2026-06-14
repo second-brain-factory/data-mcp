@@ -5,7 +5,7 @@ real user. You play both team members ("iwo" and "ola") in two Claude Code
 sessions. No scripts — everything is typed conversationally, which also
 tests whether Claude maps natural phrasing to the right MCP tools.
 
-**Version under test:** `@iwo-szapar/data-mcp@0.8.0`
+**Version under test:** `@iwo-szapar/data-mcp@0.15.0`
 **Backend:** markdown (shared git repo). The Supabase-backend equivalent of
 the isolation-critical steps is automated: `scripts/mvp-isolation-supabase.mjs`
 (run with `SB_SUPABASE_URL`/`SB_SUPABASE_KEY` set) — it proves 3.2a/3.9 hold
@@ -57,7 +57,7 @@ Create `~/member-iwo/.mcp.json`:
   "mcpServers": {
     "second-brain-data": {
       "command": "npx",
-      "args": ["-y", "@iwo-szapar/data-mcp@0.8.0"],
+      "args": ["-y", "@iwo-szapar/data-mcp@0.15.0"],
       "env": {
         "SB_BACKEND": "markdown",
         "SB_MARKDOWN_ROOT": "/Users/YOU/member-iwo/memory",
@@ -92,8 +92,8 @@ cd ~/member-iwo && claude      cd ~/member-ola && claude
 Approve the `second-brain-data` MCP server prompt in each tab.
 
 **CHECK 1:** In each tab ask: *"What MCP tools do you have from
-second-brain-data?"* — expect ~41 tools (knowledge, tasks, sessions,
-goals, contacts, setup, brain_stats...).
+second-brain-data?"* — expect 22 tools (knowledge, records, sessions,
+handoffs, links, setup, brain_stats/brain_decay, and ingest).
 
 > If the server fails to start or shows a wrong version: you are probably
 > in a directory whose `node_modules` contains data-mcp, or the version
@@ -204,7 +204,7 @@ rm -rf ~/member-iwo ~/member-ola
 
 | Part | Checks | Blocker if failed? |
 |---|---|---|
-| 1 Setup | server boots, 41 tools | yes |
+| 1 Setup | server boots, 22 tools | yes |
 | 2 Bootstrap | migrate works + idempotent | yes |
 | 3 Core contract | 11 steps; 3.2a/3.9 are isolation | **3.2a, 3.9: release blockers.** 3.2b: expected trust-model demo on markdown. Others: investigate |
 | 4 Search | 4 steps | file against data-mcp, not a blocker |
