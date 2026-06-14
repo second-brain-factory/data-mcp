@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @second-brain/data-mcp — entry point
+ * @iwo-szapar/data-mcp entry point
  *
  * Parses configuration, creates the appropriate adapter,
  * builds the MCP server, and connects via stdio transport.
